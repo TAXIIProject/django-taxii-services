@@ -77,7 +77,9 @@ def get_service_handler(service, taxii_message):
     return handler
 
 def get_push_methods(data_collection):
-    #TODO: Implement this
+    #TODO: Implement this.
+    #This depends on the ability of taxii_services to push content
+    #and includes client capabilities
     return None
 
 #TODO: This is a model -> TAXII 1.1 specific thing. Should it be marked as such, named as such, labeled as such?
@@ -206,6 +208,8 @@ def get_supported_content(obj):
     """
     Works on any model with 'accept_any_content' (bool) and 
     'supported_content' (many to many to ContentBindingAndSubtype) fields
+    
+    Returns a list of TAXII 1.1 ContentBinding objects
     """
     if obj.accept_all_content:
         return None#Indicates accept all
@@ -220,89 +224,21 @@ def get_supported_content(obj):
         
         if subtype and subtype.subtype_id not in supported_content[binding_id].subtype_ids:
             supported_content[binding_id].subtype_ids.append(subtype.subtype_id)
-    #TODO: If no content is supported, this will incorectly indicate that all content is supported
+    
     return supported_content.values()
 
 
 def get_supported_queries(poll_service):
     return None#TODO: Implement this
 
-def discovery_handler(discovery_service, discovery_request, django_request):
+def create_inbox_message_db(inbox_message, received_via=None):
+    """
+    The InboxMessage model is used for bookkeeping purposes.
+    """
     
-    #Get all the enabled services that this discovery service advertises
-    advertised_services = list(chain(discovery_service.advertised_discovery_services.filter(enabled=True),
-                                     discovery_service.advertised_poll_services.filter(enabled=True),
-                                     discovery_service.advertised_inbox_services.filter(enabled=True),
-                                     discovery_service.advertised_collection_management_services.filter(enabled=True)))
-    
-    discovery_response = tm11.DiscoveryResponse(tm11.generate_message_id(), discovery_request.message_id)
-    
-    #Create a service instance for each advertised service
-    #If a service supports multiple protocols, it has to be split into
-    #one service instance for each protocol
-    for service in advertised_services:
-        st = None#Service_type
-        sq = None#supported_query
-        isac = None#inbox_service_accepted_content
-        if isinstance(service, models.DiscoveryService):
-            st = tm11.SVC_DISCOVERY
-        elif isinstance(service, models.PollService):
-            st = tm11.SVC_POLL
-            sq = get_supported_queries(service)
-        elif isinstance(service, models.InboxService):
-            st = tm11.SVC_INBOX
-            isac = get_supported_content(service)
-        elif isinstance(service, models.CollectionManagementService):
-            st = tm11.SVC_COLLECTION_MANAGEMENT
-        else:#TODO: use a better exception
-            raise Exception("Unknown service class %s" % service.__class__.__name__)
-        
-        for pb in service.supported_protocol_bindings.all():            
-            si = tm11.ServiceInstance(
-                         service_type = st,
-                         services_version = t.VID_TAXII_SERVICES_11,
-                         available = True,
-                         protocol_binding = pb.binding_id,
-                         service_address = service.path,#TODO: Get the server's real path and prepend it here
-                         message_bindings = [mb.binding_id for mb in service.supported_message_bindings.all()],
-                         supported_query = sq,
-                         inbox_service_accepted_content = isac,
-                         message = service.description
-                         )
-            discovery_response.service_instances.append(si)
-    
-    return discovery_response
-
-def inbox_message_handler(inbox_service, inbox_message, django_request):
-    
-    num_dcns = len(inbox_message.destination_collection_names)
-    
-    if inbox_service.destination_collection_status == 'required' and num_dcns == 0:
-        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_DESTINATION_COLLECTION_ERROR)
-        sm.message = 'A Destination_Collection_Name is required and none were specified'
-        sm.status_detail = get_inbox_acceptable_destinations(inbox_service)
-        return sm
-    
-    if inbox_service.destination_collection_status == 'prohibited' and num_dcns > 0:
-        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_DESTINATION_COLLECTION_ERROR)
-        sm.message = 'Destination_Collection_Names are prohibited'
-        return sm
-    
-    #Try to find all specified collection names
-    collections = []
-    for collection_name in inbox_message.destination_collection_names:
-        try:
-            collections.append(inbox_service.destination_collections.get(name=collection_name))
-        except:
-            raise
-            sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_NOT_FOUND)
-            sm.message = 'Invalid destination collection name'
-            #TODO: Verify that this status_detail is being set right. Its probably not. should probably use a constant for ITEM.
-            sm.status_detail = {'ITEM': collection_name}
-            return sm
-    
-    #Save InboxMessage info to the database
-    inbox_message_db = models.InboxMessage()#The database instance of the inbox message
+    # For bookkeeping purposes, create an InboxMessage object
+    # in the database
+    inbox_message_db = models.InboxMessage() # The database instance of the inbox message
     inbox_message_db.message_id = inbox_message.message_id
     inbox_message_db.sending_ip = django_request.META.get('REMOTE_ADDR', None)
     if inbox_message.result_id:
@@ -319,7 +255,7 @@ def inbox_message_handler(inbox_service, inbox_message, django_request):
         si = models.SubscriptionInformation()
         si.collection_name = inbox_message.subscription_information.collection_name
         si.subscription_id = inbox_message.subscription_information.subscription_id
-        #TODO: These are probably wrong
+        #TODO: These might be wrong. Need to test to verify
         if inbox_message.subscription_information.exclusive_begin_timestamp_label:
             si.exclusive_begin_timestamp_label = inbox_message.subscription_information.exclusive_begin_timestamp_label
         if inbox_message.subscription_information.inclusive_end_timestamp_label:
@@ -327,15 +263,142 @@ def inbox_message_handler(inbox_service, inbox_message, django_request):
         si.save()
         inbox_message_db.subscription_information = si
     
-    inbox_message_db.received_via = inbox_service
+    if received_via:
+        inbox_message_db.received_via = inbox_service
+    
     inbox_message_db.original_message = inbox_message.to_xml()
     inbox_message_db.content_block_count = len(inbox_message.content_blocks)
     inbox_message_db.content_blocks_saved = 0
     inbox_message_db.save()
     
-    #Add the content blocks to the database
+    return inbox_message_db
+
+def get_subscription_instance(subscription):
+    """
+    Returns a TAXII 1.1 subscription instance
+    """
+    tm11.SubscriptionInstance(
+                        subscription_id = subscription.subscription_id,
+                        status = subscription.status,
+                        #TODO: More to do here.
+                        #TODO: Could use a general purpose function to generate a subscription's info here
+                )
+    pass
+
+def discovery_handler(discovery_service, discovery_request, django_request):
+    """
+    This is the default handler for the Discovery Service Model. It takes a Discovery Service,
+    DiscoveryRequest, and Django Request and forms an appropriate DiscoveryResponse.
+    
+    Args:
+        discovery_service (discovery_service model instance): The Discovery Service being invoked
+        discovery_request (libtaxii.messages_11 DiscoveryRequest): The Discovery Request being responded to
+        django_request (Django request): The Django request being responded to
+    
+    """
+    
+    # Chain together all the enabled services that this discovery service advertises
+    advertised_services = list(chain(discovery_service.advertised_discovery_services.filter(enabled=True),
+                                     discovery_service.advertised_poll_services.filter(enabled=True),
+                                     discovery_service.advertised_inbox_services.filter(enabled=True),
+                                     discovery_service.advertised_collection_management_services.filter(enabled=True)))
+    
+    # Create the stub DiscoveryResponse
+    discovery_response = tm11.DiscoveryResponse(tm11.generate_message_id(), discovery_request.message_id)
+    
+    # Iterate over advertised services, creating a service instance for each
+    for service in advertised_services:
+        st = None # placeholder for service_type
+        sq = None # placeholder for supported_query
+        isac = None # placeholder for inbox_service_accepted_content
+        if isinstance(service, models.DiscoveryService):
+            st = tm11.SVC_DISCOVERY # This is a Discovery Service
+        elif isinstance(service, models.PollService):
+            st = tm11.SVC_POLL # This is a Poll Service
+            sq = get_supported_queries(service)
+        elif isinstance(service, models.InboxService):
+            st = tm11.SVC_INBOX # This is an Inbox Service
+            isac = get_supported_content(service)
+        elif isinstance(service, models.CollectionManagementService):
+            st = tm11.SVC_COLLECTION_MANAGEMENT # This is a Collection Management Service
+        else: # TODO: use a better exception
+            raise Exception("Unknown service class %s" % service.__class__.__name__)
+        
+        # In TAXII, each protocol binding is a seprate service instance, so we need to 
+        # iterate over all protocol bindings and create one service instance for each one
+        for pb in service.supported_protocol_bindings.all():
+            si = tm11.ServiceInstance(
+                         service_type = st,
+                         services_version = t.VID_TAXII_SERVICES_11,
+                         available = True,
+                         protocol_binding = pb.binding_id,
+                         service_address = service.path,#TODO: Get the server's real path and prepend it here
+                         message_bindings = [mb.binding_id for mb in service.supported_message_bindings.all()],
+                         supported_query = sq,
+                         inbox_service_accepted_content = isac,
+                         message = service.description
+                         )
+            # Add the service instance to the Discovery Response
+            discovery_response.service_instances.append(si)
+    
+    # Return the Discovery Response
+    return discovery_response
+
+def inbox_message_handler(inbox_service, inbox_message, django_request):
+    """
+    This is the default handler for the Inbox Service Model. It takes an Inbox Service,
+    InboxMessage, and Django Request and forms an appropriate DiscoveryResponse.
+    
+    Args:
+        inbox_service (inbox_service model instance): The Inbox Service being invoked
+        inbox_message (libtaxii.messages_11 InboxMessage): The Inbox Message being responded to
+        django_request (Django request): The Django request being responded to
+    
+    """
+    
+    # Calculate the number of Destination Collection Names present in the InboxMessage
+    num_dcns = len(inbox_message.destination_collection_names)
+    
+    # Error check 1 of 2 for Destination Collection Names
+    # If Destination Collection Name is required but there aren't any, return a Status Message
+    if inbox_service.destination_collection_status == models.REQUIRED and num_dcns == 0:
+        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_DESTINATION_COLLECTION_ERROR)
+        sm.message = 'A Destination_Collection_Name is required and none were specified'
+        sm.status_detail = get_inbox_acceptable_destinations(inbox_service)
+        return sm
+    
+    # Error check 2 of 2 for Destination Collection Names
+    # If Destination Collection Name is prohibited but there are more than one, return a Status Message
+    if inbox_service.destination_collection_status == models.PROHIBITED and num_dcns > 0:
+        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_DESTINATION_COLLECTION_ERROR)
+        sm.message = 'Destination_Collection_Names are prohibited'
+        return sm
+    
+    # For each Destination Collection Name specified in the Inbox Message, attempt to
+    # locate it in the database. If a lookup fails, respond with a Status Message
+    # If there are no Destination Collection Names specified in the Inbox Message,
+    # The code in the loop will not be executed
+    collections = []
+    for collection_name in inbox_message.destination_collection_names:
+        try:
+            collections.append(inbox_service.destination_collections.get(name=collection_name, enabled=True))
+        except:
+            raise
+            sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type=tm11.ST_NOT_FOUND)
+            sm.message = 'Invalid destination collection name'
+            #TODO: Verify that this status_detail is being set right. Its probably not. should probably use a constant for ITEM.
+            sm.status_detail = {'ITEM': collection_name}
+            return sm
+    
+    # Store certain information about this Inbox Message in the database for bookkeeping
+    inbox_message_db = create_inbox_message_db(inbox_message, received_via = inbox_service)
+    
+    # Iterate over the ContentBlocks in the InboxMessage and try to add
+    # them to the database
     saved_blocks = 0
     for content_block in inbox_message.content_blocks:
+        
+        # Get the Content Binding Binding Id and (if present) Subtype
         binding_id = content_block.content_binding.binding_id
         subtype_id = None
         if len(content_block.content_binding.subtype_ids) > 0:
@@ -343,50 +406,52 @@ def inbox_message_handler(inbox_service, inbox_message, django_request):
         
         saved = False
         try:
+            # Attempt to instantiate a ContentBlock model with
+            # properties from the InboxMessage's ContentBlock
             cb = models.ContentBlock()
-            #TODO: Should this create previously unknown content binding/subtypes?
-            #TODO: This will throw errors - how should they be handled?
+            
+            # Note that if the Content Binding ID AND Subtype ID are not known, the next line will raise
+            # an exception, causing no further processing of the ContentBlock.
             cb.content_binding_and_subtype = models.ContentBindingAndSubtype.objects.get(content_binding__binding_id=binding_id, subtype__subtype_id=subtype_id)
+            
             cb.content = content_block.content
             if content_block.padding:
                 cb.padding = content_block.padding
             if content_block.message:
                 cb.message = content_block.message
             cb.inbox_message = inbox_message_db
-            #TODO: Not sure what to do about signatures.
             
-            #TODO: Currently, the logic is this:
-            # If there are not any destination collections, try to add it without a Data Collection
-            # If there are destination collections, try to add it to each data collection, but don't add it without a data collection
-            # Should there be a way to add it to some kind of "null" data collection that happens even when there are specified data collection(s)?
-            
+            # If there are not any destination collections and the
+            # Inbox Service supports the Content Binding and Subtype add the Content Block
+            # to the database (by calling .save())
             if len(collections) == 0 and is_content_supported(inbox_service, content_block):
-                cb.save()#This adds the content block without associating it to a Data Collection
+                cb.save() # Save the Content Block
                 saved = True
             
+            # If there are destination collections, for each collection: 
+            # If that collection supports the Content Binding and Subtype, associate
+            # The ContentBlock with the Data Collection
             for collection in collections:
-                #print "looking at collection", collection
                 if is_content_supported(collection, content_block):
-                    #print "content is supported!"
                     if not saved:
                         cb.save()
                         saved = True
                     collection.content_blocks.add(cb)
-                else:
-                    print 'content is not supported:', content_block.content_binding
+                #else:
+                #    print 'content is not supported:', content_block.content_binding
             
-            if saved and inbox_message.result_id:
-                cb.result_id = inbox_message.result_id
-                cb.save()
-            
+            # If the ContentBlock was saved to the DB, update
+            # the running tally
             if saved:
                 saved_blocks += 1
-        except:#TODO: Something useful here.
+        except: # TODO: Something useful here.
             raise
-    print 'saved blocks should be updated'
+    
+    # Update the Inbox Message model with the number of ContentBlocks that were saved
     inbox_message_db.content_blocks_saved = saved_blocks
     inbox_message_db.save()
     
+    #Create and return a Status Message indicating success
     status_message = tm11.StatusMessage(message_id = tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type = tm11.ST_SUCCESS)
     return status_message
     
@@ -495,10 +560,28 @@ def poll_request_handler(poll_service, poll_request, django_request):
             poll_response.content_blocks.append(cb)
     
     return poll_response
-    
+
+def poll_fulfillment_handler(poll_service, poll_fulfillment_request, django_request):
+    pass
+
 def collection_information_handler(collection_management_service, collection_information_request, django_request):
+    """
+    This is the default handler for Collection Information Requests. It takes an Collection Management Service,
+    CollectionInformationRequest, and Django Request and forms an appropriate DiscoveryResponse.
+    
+    Args:
+        collection_management_service (collection_management_service model instance): The Collection Management Service being invoked
+        collection_information_request (libtaxii.messages_11 CollectionInformationRequest): The Collection Information Request being responded to
+        django_request (Django request): The Django request being responded to
+    
+    """
+    
+    # Create a stub CollectionInformationResponse
     cir = tm11.CollectionInformationResponse(message_id = tm11.generate_message_id(), in_response_to = collection_information_request.message_id)
-    for collection in collection_management_service.advertised_collections.all():
+    
+    # For each collection that is advertised and enabled, create a Collection Information
+    # object and add it to the Collection Information Response
+    for collection in collection_management_service.advertised_collections.filter(enabled=True):
         ci = tm11.CollectionInformation(
             collection_name = collection.name,
             collection_description = collection.description,
@@ -516,7 +599,143 @@ def collection_information_handler(collection_management_service, collection_inf
     
     return cir
 
-def subscription_management_handler(collection_management_service, taxii_request, django_request):
-    pass
+def subscription_management_handler(collection_management_service, subscription_management_request, django_request):
+    """
+    This is the default handler for Subscription Management Requests. It takes an Collection Management Service,
+    SubscriptionManagementRequest, and Django Request and forms an appropriate DiscoveryResponse.
+    
+    Args:
+        collection_management_service (collection_management_service model instance): The Collection Management Service being invoked
+        subscription_management_request (libtaxii.messages_11 SubscriptionManagementRequest): The Subscription Management Information Request being responded to
+        django_request (Django request): The Django request being responded to
+    
+    This handler blindly allows all requests.
+    """
+    
+    # Create an alias because the name is long as fiddlesticks
+    smr = subscription_management_request
+        
+    # Super verbose, but this code follows the guidance in the spec
+    
+    # 1. This code doesn't do authentication, so this step is skipped
+    
+    # 2. If the Collection Name does not exist, respond with a Status Message
+    try:
+        data_collection = models.DataCollection.objects.get(collection_name = smr.collection_name, enabled=True)
+    except:
+        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=smr.message_id, status_type = tm11.ST_NOT_FOUND)
+        sm.message = 'The collection you requested was not found'
+        sm.status_detail = {'ITEM': smr.collection_name}
+        return sm
+    
+    # 3. Unsubscribe actions should always succeed, even if there was not a subscription
+    if smr.action == tm11.ACT_UNSUBSCRIBE:
+        try:
+            subscription = models.Subscription.get(subscription_id = smr.subscription_id)
+            subscription.status == models.UNSUBSCRIBED_STATUS
+            subscription.save()
+        except:
+            pass
+        
+        response = tm11.CollectionManagementResponse(message_id = tm11.generate_message_id(), in_response_to = smr.message_id)
+        response.subscription_instance = tm11.SubscriptionInstance(
+                                                subscription_id = smr.subscription_id,
+                                                status = tm11.SS_UNSUBSCRIBED)
+        return response
+    
+    # Create a stub ManageCollectionSubscriptionResponse
+    response = tm11.ManageCollectionSubscriptionResponse(
+                            message_id = tm11.generate_message_id(), 
+                            in_response_to = smr.message_id,
+                            collection_name = data_collection.collection_name)
+    
+    # 4. (paraphrased) Error checking
+    if smr.action == tm11.ACT_SUBSCRIBE:
+        # TODO: Check for supported push methods (e.g., inbox protocol, delivery message binding)
+        
+        # Check for unsupported / unknown Content Bindings / Subtypes
+        
+        # Supporting all is not an error
+        accept_all_content = False
+        if len(smr.subscription_parameters.content_bindings) == 0: # All bindings are supported
+            accept_all_content = True
+        
+        #Iterate over specified content_bindings
+        supported_contents = []
+        for content_binding in smr.subscription_parameters.content_bindings:
+            binding_id = content_binding.binding_id
+            if len(content_binding.subtype_ids) == 0:
+                # TODO: This probably needs to be in a try/catch block that returns the correct status message
+                cbas = data_collection.supported_content.get(content_binding__binding_id = binding_id, subtype__subtype_id = None)
+                supported_contents.append(cbas)
+            else:
+                for subtype_id in content_binding.subtype_ids:
+                    # TODO: This probably needs to be in a try/catch block that returns the correct status message
+                    cbas = data_collection.supported_content.get(content_binding__binding_id = binding_id, subtype__subtype_id = subtype_id)
+                    supported_contents.append(cbas)
+        
+        # TODO: Check the query format and see if it works
+        # TODO: Implement query
+        
+        # 5. Attempts to create a duplicate subscription should just return the existing subscription
+        try:
+            existing_subscription = models.Subscription.objects.get(
+                            response_type = smr.subscription_parameters.response_type, 
+                            accept_all_content = accept_all_content,
+                            supported_content = supported_contents, # TODO: This is probably wrong
+                            query = None, # TODO: Implement query
+                            )
+            # TODO: Return the existing subscription
+        except:
+            pass
+        
+        # TODO: Create the subscription
+        subscription = models.Subscription()
+        # TODO: Return the subscription
+        response.subscription_instances.append(get_subscription_instance(subscription)
+        return response
+    
+    if smr.action == tm11.ACT_STATUS and not smr.subscription_id:
+        # This request is requesting the status of ALL subscriptions.
+        # This is just a dummy PoC, so it returns all subscriptions
+        # in the system for that Data Collection =)
+        
+        for subscription in models.Subscription.objects.filter(data_collection=data_collection):
+            si = get_subscription_instance(subscription)
+            response.subscription_instances.append(si)
+        
+        return response
+    
+    # 7. (OK - this one is out of order because it makes sense)
+    #    Attempts to Pause/resume/status a non existent subscription should result
+    #    in a Not Found Status Message
+    try:
+        subscription = models.Subscription.get(subscription_id = smr.subscription_id)
+    except:
+        sm = tm11.StatusMessage(tm11.generate_message_id(), in_response_to=smr.message_id, status_type = tm11.ST_NOT_FOUND)
+        sm.message = 'The Subscription ID you requested was not found'
+        sm.status_detail = {'ITEM': smr.subscription_id}
+        return sm
+    
+    # 6. Pausing is idempotent
+    if smr.action == tm11.ACT_PAUSE:
+        subscription.status = models.PAUSED_STATUS
+        subscription.save()
+        response.subscription_instances.append(get_subscription_instance(subscription))
+        return response
+    
+    # 6. Resuming is idempotent
+    if smr.action == tm11.ACT_RESUME:
+        subscription.status = models.ACTIVE_STATUS
+        subscription.save()
+        response.subscription_instances.append(get_subscription_instance(subscription))
+        return response
+    
+    if smr.action == tm11.ACT_STATUS:
+        response.subscription_instances.append(get_subscription_instance(subscription))
+        return response
+        
+    
+    raise Exception("what?!?!?!?!??!?!")
     
 

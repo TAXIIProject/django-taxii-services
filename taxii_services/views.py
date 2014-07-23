@@ -5,7 +5,7 @@
 
 from django.views.decorators.csrf import csrf_exempt
 import handlers
-from taxii_services.utils import request_utils, response_utils
+from utils import request_utils, response_utils
 
 @csrf_exempt
 @request_utils.validate_taxii()

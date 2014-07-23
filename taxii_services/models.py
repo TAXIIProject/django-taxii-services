@@ -31,7 +31,7 @@ MESSAGE_HANDLER_CHOICES = (INBOX_MESSAGE_HANDLER, POLL_REQUEST_HANDLER, POLL_FUL
 
 ACTIVE_STATUS = (tm11.SS_ACTIVE, 'Active')
 PAUSED_STATUS = (tm11.SS_PAUSED, 'Paused')
-UNSUBSCRIBED_STATUS = (tm11.SS_UNSUBSCRIBED, 'Unsibscribed')
+UNSUBSCRIBED_STATUS = (tm11.SS_UNSUBSCRIBED, 'Unsubscribed')
 
 SUBSCRIPTION_STATUS_CHOICES = (ACTIVE_STATUS, PAUSED_STATUS, UNSUBSCRIBED_STATUS)
 
@@ -52,6 +52,9 @@ PROHIBITED = ('PROHIBITED', 'prohibited')
 ROP_CHOICES = (REQUIRED, OPTIONAL, PROHIBITED)
 
 #TODO: probably "unique=True" could be used at least once in each model. should try to figure out where it makes sense.
+
+# TODO: Each model could probably use an is_serializable() and serialize() method.
+# .... hmm ....
 
 class Validator(models.Model):
     """
@@ -200,85 +203,11 @@ class ProtocolBinding(models.Model):
     class Meta:
         verbose_name = "Protocol Binding"
 
-# class PushMethod(models.Model):
-    # """
-    # Used to establish the protocols that can be used to push content via
-    # a subscription. This appears in a Collection Information Response message,
-    # as defined by the TAXII Services Specification.
-    # """
-    # name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True)
-    # description = models.TextField(blank=True)
-    # protocol_binding = models.ForeignKey(ProtocolBinding)
-    # message_bindings = models.ManyToManyField(MessageBinding)
-    
-    # date_created = models.DateTimeField(auto_now_add=True)
-    # date_updated = models.DateTimeField(auto_now=True)
-    
-    # def __unicode__(self):
-        # if self.name:
-            # return u'%s' % (self.name)
-        # else:
-            # return u'%s | %s' % (self.protocol_binding, self.message_binding)
-    
-    # class Meta:
-        # verbose_name = "Data Collection Push Method"
-
-# class PollInformation(models.Model):
-    # """
-    # Used to establish the supported protocols and address of a Data Collection.
-    # This appears in a Collection Information Response message, as defined by the
-    # TAXII Services Specification.
-    # """
-    # name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True)
-    # description = models.TextField(blank=True)
-    # address = models.URLField()
-    # protocol_binding = models.ForeignKey(ProtocolBinding)
-    # message_bindings = models.ManyToManyField(MessageBinding)
-    
-    # date_created = models.DateTimeField(auto_now_add=True)
-    # date_updated = models.DateTimeField(auto_now=True)
-    
-    # def __unicode__(self):
-        # if self.name:
-            # return u'%s' % (self.name)
-        # else:
-            # return u'%s | %s' % (self.protocol_binding, self.message_binding)
-    
-    # class Meta:
-        # ordering = ['address']
-        # verbose_name = "Data Collection Poll Information"
-        # verbose_name_plural = "Data Collection Poll Information"
-    
-# class SubscriptionMethod(models.Model):
-    # """
-    # Used to identify the protocol and address of the TAXII daemon hosting
-    # the Collection Management Service that can process subscriptions for a TAXII
-    # Data Collection. This appears in a Collection Information Response message, as defined
-    # by the TAXII Services Specification.
-    # """
-    # name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True)
-    # description = models.TextField(blank=True)
-    # address = models.URLField()
-    # protocol_binding = models.ForeignKey(ProtocolBinding)
-    # message_bindings = models.ManyToManyField(MessageBinding)
-    
-    # date_created = models.DateTimeField(auto_now_add=True)
-    # date_updated = models.DateTimeField(auto_now=True)
-    
-    # def __unicode__(self):
-        # if self.name:
-            # return u'%s' % (self.name)
-        # else:
-            # return u'%s | %s' % (self.protocol_binding, self.message_binding)
-    
-    # class Meta:
-        # ordering = ['address']  
-        # verbose_name = "Data Collection Subscription Method"
-
 class DataCollection(models.Model):
     name = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
     description = models.TextField(blank=True)
     type = models.CharField(max_length=MAX_NAME_LENGTH, choices=DATA_COLLECTION_CHOICES)#Choice - Data Feed or Data Set
+    enabled = models.BooleanField(default=True)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
     content_blocks = models.ManyToManyField('ContentBlock', blank=True, null=True)
@@ -425,8 +354,10 @@ class DiscoveryService(_TaxiiService):
 
 class Subscription(models.Model):
     subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+    data_collection = models.ForeignKey(DataCollection)
     response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices = RESPONSE_CHOICES, default=tm11.RT_FULL)
-    content_binding_and_subtype = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
+    accept_all_content = models.BooleanField(default=False)
+    supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
     query = models.TextField(blank=True)
     #push_parameters = models.ForeignKey(PushParameters)#TODO: Create a push parameters object
     status = models.CharField(max_length=MAX_NAME_LENGTH, choices = SUBSCRIPTION_STATUS_CHOICES, default=tm11.SS_ACTIVE)
