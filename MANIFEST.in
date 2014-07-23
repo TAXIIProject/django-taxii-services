@@ -1,0 +1,8 @@
+include INSTALL
+include LICENSE.txt
+include README.md
+include requirements.txt
+recursive-include docs *
+recursive-exclude docs *.pyc
+recursive-exclude docs *.pyo
+prune docs/_build
