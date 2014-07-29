@@ -8,6 +8,7 @@ import libtaxii as t
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
 import datetime
+import taxiifiers
 from dateutil.tz import tzutc
 from importlib import import_module
 
@@ -202,36 +203,11 @@ def is_content_supported(obj, content_block): #binding_id, subtype_id = None):
     
     print 'all out of options!'
     return False
-    
-
-def get_supported_content(obj):
-    """
-    Works on any model with 'accept_any_content' (bool) and 
-    'supported_content' (many to many to ContentBindingAndSubtype) fields
-    
-    Returns a list of TAXII 1.1 ContentBinding objects
-    """
-    if obj.accept_all_content:
-        return None#Indicates accept all
-    
-    supported_content = {}
-    
-    for content in obj.supported_content.all():
-        binding_id = content.content_binding.binding_id
-        subtype = content.subtype
-        if binding_id not in supported_content:
-            supported_content[binding_id] = tm11.ContentBinding(binding_id = binding_id)
-        
-        if subtype and subtype.subtype_id not in supported_content[binding_id].subtype_ids:
-            supported_content[binding_id].subtype_ids.append(subtype.subtype_id)
-    
-    return supported_content.values()
-
 
 def get_supported_queries(poll_service):
     return None#TODO: Implement this
 
-def create_inbox_message_db(inbox_message, received_via=None):
+def create_inbox_message_db(inbox_message, django_request, received_via=None):
     """
     The InboxMessage model is used for bookkeeping purposes.
     """
@@ -264,7 +240,7 @@ def create_inbox_message_db(inbox_message, received_via=None):
         inbox_message_db.subscription_information = si
     
     if received_via:
-        inbox_message_db.received_via = inbox_service
+        inbox_message_db.received_via = received_via # This is an inbox service
     
     inbox_message_db.original_message = inbox_message.to_xml()
     inbox_message_db.content_block_count = len(inbox_message.content_blocks)
@@ -273,17 +249,23 @@ def create_inbox_message_db(inbox_message, received_via=None):
     
     return inbox_message_db
 
-def get_subscription_instance(subscription):
+def create_result_set(results, data_collection):
     """
-    Returns a TAXII 1.1 subscription instance
+    Creates a result set for later
     """
-    tm11.SubscriptionInstance(
-                        subscription_id = subscription.subscription_id,
-                        status = subscription.status,
-                        #TODO: More to do here.
-                        #TODO: Could use a general purpose function to generate a subscription's info here
-                )
-    pass
+    
+    result_set = models.ResultSet()
+    result_set.data_collection = data_collection
+    result_set.total_content_blocks = len(results)
+    result_set.expires = datetime.datetime.now(tzutc()) + datetime.timedelta(days=7) #Result Sets expire after a week
+    result_set.save()
+    
+    for result in results:
+        result_set.content_blocks.add(result)
+    
+    result_set.save()
+    
+    return result_set
 
 def discovery_handler(discovery_service, discovery_request, django_request):
     """
@@ -308,38 +290,8 @@ def discovery_handler(discovery_service, discovery_request, django_request):
     
     # Iterate over advertised services, creating a service instance for each
     for service in advertised_services:
-        st = None # placeholder for service_type
-        sq = None # placeholder for supported_query
-        isac = None # placeholder for inbox_service_accepted_content
-        if isinstance(service, models.DiscoveryService):
-            st = tm11.SVC_DISCOVERY # This is a Discovery Service
-        elif isinstance(service, models.PollService):
-            st = tm11.SVC_POLL # This is a Poll Service
-            sq = get_supported_queries(service)
-        elif isinstance(service, models.InboxService):
-            st = tm11.SVC_INBOX # This is an Inbox Service
-            isac = get_supported_content(service)
-        elif isinstance(service, models.CollectionManagementService):
-            st = tm11.SVC_COLLECTION_MANAGEMENT # This is a Collection Management Service
-        else: # TODO: use a better exception
-            raise Exception("Unknown service class %s" % service.__class__.__name__)
-        
-        # In TAXII, each protocol binding is a seprate service instance, so we need to 
-        # iterate over all protocol bindings and create one service instance for each one
-        for pb in service.supported_protocol_bindings.all():
-            si = tm11.ServiceInstance(
-                         service_type = st,
-                         services_version = t.VID_TAXII_SERVICES_11,
-                         available = True,
-                         protocol_binding = pb.binding_id,
-                         service_address = service.path,#TODO: Get the server's real path and prepend it here
-                         message_bindings = [mb.binding_id for mb in service.supported_message_bindings.all()],
-                         supported_query = sq,
-                         inbox_service_accepted_content = isac,
-                         message = service.description
-                         )
-            # Add the service instance to the Discovery Response
-            discovery_response.service_instances.append(si)
+        service_instances = taxiifiers.service_to_service_instances(service)
+        discovery_response.service_instances.extend(service_instances)
     
     # Return the Discovery Response
     return discovery_response
@@ -347,7 +299,7 @@ def discovery_handler(discovery_service, discovery_request, django_request):
 def inbox_message_handler(inbox_service, inbox_message, django_request):
     """
     This is the default handler for the Inbox Service Model. It takes an Inbox Service,
-    InboxMessage, and Django Request and forms an appropriate DiscoveryResponse.
+    InboxMessage, and Django Request and forms an appropriate Status Message.
     
     Args:
         inbox_service (inbox_service model instance): The Inbox Service being invoked
@@ -391,7 +343,7 @@ def inbox_message_handler(inbox_service, inbox_message, django_request):
             return sm
     
     # Store certain information about this Inbox Message in the database for bookkeeping
-    inbox_message_db = create_inbox_message_db(inbox_message, received_via = inbox_service)
+    inbox_message_db = create_inbox_message_db(inbox_message, django_request, received_via = inbox_service)
     
     # Iterate over the ContentBlocks in the InboxMessage and try to add
     # them to the database
@@ -457,6 +409,34 @@ def inbox_message_handler(inbox_service, inbox_message, django_request):
     
 
 def poll_request_handler(poll_service, poll_request, django_request):
+    """
+    This is the default handler for the Poll Service Model. It takes a Poll Service,
+    Poll Request Message, and Django Request and forms an appropriate Poll Response (or Status Message).
+    
+    Args:
+        poll_service (poll_service model instance): The Inbox Service being invoked
+        poll_request (libtaxii.messages_11 PollRequest): The Inbox Message being responded to
+        django_request (Django request): The Django request being responded to
+    
+    The Poll Service is actually a little complicated, so the workflow for this method is documented here:
+    
+    1. Check if the named Data Collection exists. Return a Status Message if the Data Collection doesn't exist.
+    2. Pull the request parameters out of the stored subscription or
+    3. Pull the request parameters our of the request itself.
+    4. Make a database query (Note: Not a TAXII Query, yet) to get a list of potential results.
+    5. If a TAXII Query is present in the query, loop over each potential result and apply the query
+    6. Decide whether or not results are available "now". This app just uses a bool, real code would use something real
+    7. If the results are available "now":
+        8. Decide whether to split the results across multiple poll responses
+        9. If splitting, split across multiple responses
+        10. If not splitting, don't split across multiple responses
+    11. If the results are NOT available "now":
+        12. If request.allow_asynch, send a Pending Status Message 
+        13. elif delivery parameters exist *and* this code supports them, send the results using the delivery parameters
+        14. Return a Status Message of Failure (?)
+    """
+    
+    # The check for #1
     try:
         collection = poll_service.data_collections.get(name=poll_request.collection_name)
     except:
@@ -467,7 +447,7 @@ def poll_request_handler(poll_service, poll_request, django_request):
     
     filter_kwargs = {}
     
-    if collection.type == 'feed':#Only data feeds care about timestamp labels
+    if collection.type == models.DATA_FEED:#Only data feeds care about timestamp labels
         current_datetime = datetime.datetime.now(tzutc())
         
         #If the request specifies a timestamp label in an acceptable range, use it. Otherwise, don't use a begin timestamp label
@@ -482,11 +462,13 @@ def poll_request_handler(poll_service, poll_request, django_request):
     
     #Set all aspects of a Poll Request to their defaults
     allow_asynch = False
-    response_type = 'FULL'
+    response_type = tm11.RT_FULL
     content_binding = None
     query = None
     delivery_parameters = None
     
+    # Step #2
+    subscription = None
     if poll_request.subscription_id:
         try:
             subscription = models.Subscription.get(subscription_id = poll_request.subscription_id)
@@ -496,14 +478,15 @@ def poll_request_handler(poll_service, poll_request, django_request):
             sm.status_detail = {'ITEM': poll_request.subscription_id}
             return sm
         
-        if subscription.status != 'ACTIVE':
+        if subscription.status != tm11.SS_ACTIVE:
             raise Exception("Subscription not active!")#TODO: Status Message
         
-        #allow_asynch = subscription.allow_asynch; MSD: This isn't in a subscription???
+        allow_asynch = False#subscription.allow_asynch; MSD: This isn't in a subscription???
         response_type = subscription.response_type
-        content_bindings = subscription.content_binding_and_subtype.all()#TODO: remediate this with the poll request poll parameters version
+        content_bindings = subscription.content_binding_and_subtype.all()
         query = tdq.DefaultQuery.from_xml(subscription.query)
         delivery_parameters = subscription.push_parameters
+    # Step #3
     elif poll_request.poll_parameters:
         allow_asynch = poll_request.poll_parameters.allow_asynch == 'true'
         response_type = poll_request.poll_parameters.response_type
@@ -526,40 +509,70 @@ def poll_request_handler(poll_service, poll_request, django_request):
     if len(content_bindings) > 0:#A filter has been specified in the request or the subscription
         filter_kwargs['content_binding_and_subtype__in'] = content_bindings
     
-    #print filter_kwargs
+    # Step #4
     results = collection.content_blocks.filter(**filter_kwargs).order_by('timestamp_label')
     
+    # Step #5
     if poll_request.poll_parameters.query is not None:
         #TODO: convert query to an XPath statement
         # run xpath against each content block
         # or, maybe have a separate/pluggable query processor for query?
         pass
     
-    poll_response = tm11.PollResponse(message_id = tm11.generate_message_id(), in_response_to = poll_request.message_id, collection_name = collection.name)
+    # Step #6
+    # This is notional; real code would make a real decision here
+    #TODO: maybe these should be a part of the model?
+    results_available = True #TODO: Make this configurable, rather than hard coded
+    split_results = True #TODO: Make this configurable, rather than hard coded
+    will_push = True#TODO: Make this configurable rather than hard coded
     
-    poll_response.more = False
-    poll_response.result_part_number = 1
-    
-    #TODO: Add support for subscriptions
-    
-    #What about asynch?
-    #What about delivery params?
-    #While in this code base there's not really a need for either, as results can always be sent in one response (maybe... maybe not now that i think about it)
-    # having code that demonstrates all options makes sense
-    
-    poll_response.record_count = tm11.RecordCount(len(results), False)
-    
-    if poll_request.poll_parameters.response_type == tm11.RT_FULL:
-        for result in results:
-            content_binding = tm11.ContentBinding(result.content_binding_and_subtype.content_binding.binding_id)
-            if result.content_binding_and_subtype.subtype:
-                content_binding.subtype_ids.append(result.content_binding_and_subtype.subtype.subtype_id)
-            cb = tm11.ContentBlock(content_binding = content_binding, content = result.content, padding = result.padding)
-            if result.timestamp_label:
-                cb.timestamp_label = result.timestamp_label
+    if results_available:
+        #Create the stub poll_response that both cases use
+        poll_response = tm11.PollResponse(message_id = tm11.generate_message_id(), in_response_to = poll_request.message_id, collection_name = collection.name)
+        poll_response.result_part_number = 1
+        if subscription:
+                poll_response.subscription_id = subscription.subscription_id
+        
+        if split_results and len(results) > 1 and response_type != tm11.RT_COUNT_ONLY: #Create a result set and return the first result
+            result_set = create_result_set(results, collection)
+            #TODO: Add in timestamp labels (if necessary)
+            poll_response.more = True
+            cb_model = result_set.content_blocks.all().order_by('timestamp_label')[1]
+            cb = taxiifiers.content_block_to_content_block(cb_model)
             poll_response.content_blocks.append(cb)
+            poll_response.result_id = str(result_set.pk)
+            return poll_response
+        else: # Don't split the results
+            poll_response.more = False
+            poll_response.exclusive_begin_timestamp_label = filter_kwargs.get('timestamp_label__gt', None)
+            poll_response.inclusive_end_timestamp_label = filter_kwargs.get('timestamp_label__lte', None)
+            poll_response.record_count = tm11.RecordCount(len(results), False)
+            
+            if poll_request.poll_parameters.response_type == tm11.RT_FULL:
+                for result in results:
+                    cb = taxiifiers.content_block_to_content_block(result)
+                    poll_response.content_blocks.append(cb)
+            
+            return poll_response
+    else: #Results aren't available "now"
+        if poll_request.allow_asynch:
+            result_set = create_result_set(results, data_collection)
+            sm = tm11.StatusMessage(message_id = tm11.generate_message_id, in_response_to = poll_request.message_id, status_type = tm11.ST_PENDING)
+            sm.status_details = {'ESTIMATED_WAIT': 0, 'RESULT_ID': result_set.result_id, 'WILL_PUSH': False}
+            return sm
+        elif poll_request.delivery_parameters is not None and will_push: #We can do delivery parameters!
+            result_set = create_result_set(results, data_collection)
+            sm = tm11.StatusMessage(message_id = tm11.generate_message_id, in_response_to = poll_request.message_id, status_type = tm11.ST_PENDING)
+            sm.status_details = {'ESTIMATED_WAIT': 0, 'RESULT_ID': result_set.result_id, 'WILL_PUSH': True}
+            # TODO: How to build pushing into the system? This part of the workflow is broken until pushing is implemented somehow
+            return sm
+        else: # The results are not available, and we have no way to give them later!
+            sm = tm11.StatusMessage(message_id = tm11.generate_message_id, in_response_to = poll_request.message_id, status_type = tm11.ST_FAILURE)
+            sm.message = "The results were not available now and the request had allow_asynch=False and no Delivery Parameters were specified."
+            return sm
+        
     
-    return poll_response
+    return "KJDLKSJALDKS"
 
 def poll_fulfillment_handler(poll_service, poll_fulfillment_request, django_request):
     pass
@@ -615,7 +628,8 @@ def subscription_management_handler(collection_management_service, subscription_
     # Create an alias because the name is long as fiddlesticks
     smr = subscription_management_request
         
-    # Super verbose, but this code follows the guidance in the spec
+    # This code follows the guidance in the TAXII Services Spec 1.1 Section 4.4.6. 
+    # This code could probably be optimized, but it exists in part to be readable.
     
     # 1. This code doesn't do authentication, so this step is skipped
     
@@ -685,14 +699,18 @@ def subscription_management_handler(collection_management_service, subscription_
                             supported_content = supported_contents, # TODO: This is probably wrong
                             query = None, # TODO: Implement query
                             )
-            # TODO: Return the existing subscription
+            
+            response.subscription_instances.append(get_subscription_instance(existing_subscription))
+            return response
         except:
             pass
         
-        # TODO: Create the subscription
+        
         subscription = models.Subscription()
-        # TODO: Return the subscription
-        response.subscription_instances.append(get_subscription_instance(subscription)
+        # TODO: Set properties of the subscription
+        subscription.save()
+        
+        response.subscription_instances.append(get_subscription_instance(subscription))
         return response
     
     if smr.action == tm11.ACT_STATUS and not smr.subscription_id:
@@ -706,7 +724,7 @@ def subscription_management_handler(collection_management_service, subscription_
         
         return response
     
-    # 7. (OK - this one is out of order because it makes sense)
+    # 7. (OK - this one is out of order because it makes sense to put it out of order)
     #    Attempts to Pause/resume/status a non existent subscription should result
     #    in a Not Found Status Message
     try:
@@ -736,6 +754,6 @@ def subscription_management_handler(collection_management_service, subscription_
         return response
         
     
-    raise Exception("what?!?!?!?!??!?!")
+    raise Exception("This code shouldn't be reached!")
     
 

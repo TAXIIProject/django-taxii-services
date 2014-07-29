@@ -100,11 +100,11 @@ def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_v
             try:
                 HeaderRule.evaluate_header_rules(request, header_rules)
             except ValueError as e:
-                msg = sm.StatusMessage(generate_message_id, '0', status_type='BAD_MESSAGE', message=e.message)
+                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message=e.message)
                 return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             if request.method != 'POST':
-                msg = sm.StatusMessage(generate_message_id, '0', status_type='BAD_MESSAGE', message='Request method was not POST')
+                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message='Request method was not POST')
                 return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             #If requested, attempt to validate
@@ -112,14 +112,14 @@ def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_v
                 try:
                     validate(request)
                 except Exception as e:
-                    msg = sm.StatusMessage(generate_message_id, '0', status_type='BAD_MESSAGE', message=e.message)
+                    msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message=e.message)
                     return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             #Attempt to deserialize
             try:
                 message = deserialize(request)
             except Exception as e:
-                msg = sm.StatusMessage(generate_message_id, '0', status_type='FAILURE', message=e.message)
+                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='FAILURE', message=e.message)
                 return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             try:
@@ -134,7 +134,7 @@ def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_v
                 elif message_types is not None:
                     raise ValueError('Something strange happened with message_types! Was not a list or object!')
             except ValueError as e:
-                msg = sm.StatusMessage(generate_message_id, message.message_id, status_type='FAILURE', message=e.message)
+                msg = tm11.StatusMessage(tm11.generate_message_id(), message.message_id, status_type='FAILURE', message=e.message)
                 return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             kwargs['taxii_message'] = message

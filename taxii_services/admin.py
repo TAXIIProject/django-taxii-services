@@ -66,7 +66,8 @@ class ServiceHandlerAdmin(admin.ModelAdmin):
 class ValidatorAdmin(admin.ModelAdmin):
     pass
 
-#class ResultSetAdmin(admin.ModelAdmin):
+class ResultSetAdmin(admin.ModelAdmin):
+    pass
 #    list_display = ['result_id', 'data_collection', 'begin_ts', 'end_ts']
 
 def register_admins():
@@ -87,7 +88,7 @@ def register_admins():
     admin.site.register(models.Validator, ValidatorAdmin)
     admin.site.register(models.InboxMessage, InboxMessageAdmin)
     #admin.site.register(models.ContentBindingAndSubtype, ContentBindingAndSubtypeAdmin)
-    #admin.site.register(ResultSet, ResultSetAdmin)
+    admin.site.register(models.ResultSet, ResultSetAdmin)
     #admin.site.register(DataCollectionPushMethod)
     #admin.site.register(DataCollectionPollInformation)
     #admin.site.register(DataCollectionSubscriptionMethod)

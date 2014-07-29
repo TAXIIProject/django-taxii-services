@@ -19,7 +19,7 @@ MAX_NAME_LENGTH = 256
 
 INBOX_MESSAGE_HANDLER = (tm11.MSG_INBOX_MESSAGE, 'Inbox Service - Inbox Message Handler')
 POLL_REQUEST_HANDLER = (tm11.MSG_POLL_REQUEST, 'Poll Service - Poll Request Handler')
-POLL_FULFILLMENT_REQUEST_HANDLER = (tm11.MSG_POLL_FULFILLMENT_REQUEST , 'Poll Service - Poll Fu;fillment Request Handler')
+POLL_FULFILLMENT_REQUEST_HANDLER = (tm11.MSG_POLL_FULFILLMENT_REQUEST , 'Poll Service - Poll Fulfillment Request Handler')
 DISCOVERY_REQUEST_HANDLER = (tm11.MSG_DISCOVERY_REQUEST, 'Discovery Service - Discovery Request Handler')
 COLLECTION_INFORMATION_REQUEST_HANDLER = (tm11.MSG_COLLECTION_INFORMATION_REQUEST, 'Collection Management Service - Collection Information Handler')
 SUBSCRIPTION_MANAGEMENT_REQUEST_HANDLER = (tm11.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 'Collection Management Service - Subscription Management Handler')
@@ -364,3 +364,12 @@ class Subscription(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
+class ResultSet(models.Model):
+    #pk is a django auto-field
+    data_collection = models.ForeignKey(DataCollection)
+    content_blocks = models.ManyToManyField(ContentBlock, blank=True, null=True)
+    total_content_blocks = models.IntegerField()
+    last_part_requested = models.IntegerField(blank=True, null=True)
+    expires = models.DateTimeField()
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
