@@ -13,9 +13,9 @@ def service_router(request, path=None, taxii_message=None):
     """
     """
     service = handlers.get_service_from_path(request.path)
-    service_handler = handlers.get_service_handler(service, taxii_message)
+    message_handler = handlers.get_message_handler(service, taxii_message)
     
-    response_message = service_handler(service, taxii_message, request)
+    response_message = message_handler.handle_message(service, taxii_message, request)
     #TODO: Consider intelligently selecting the response headers
     return response_utils.HttpResponseTaxii(response_message.to_xml(), response_utils.TAXII_11_HTTP_Headers)
     

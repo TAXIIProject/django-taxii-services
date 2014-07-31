@@ -3,9 +3,11 @@
 
 from django.db import models
 from django.db.models.signals import post_save
+from validators import validate_importable
+from importlib import import_module
+import sys
 
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes import generic
+from django.core.exceptions import ValidationError
 
 import libtaxii.messages_11 as tm11
 
@@ -23,11 +25,10 @@ POLL_FULFILLMENT_REQUEST_HANDLER = (tm11.MSG_POLL_FULFILLMENT_REQUEST , 'Poll Se
 DISCOVERY_REQUEST_HANDLER = (tm11.MSG_DISCOVERY_REQUEST, 'Discovery Service - Discovery Request Handler')
 COLLECTION_INFORMATION_REQUEST_HANDLER = (tm11.MSG_COLLECTION_INFORMATION_REQUEST, 'Collection Management Service - Collection Information Handler')
 SUBSCRIPTION_MANAGEMENT_REQUEST_HANDLER = (tm11.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 'Collection Management Service - Subscription Management Handler')
-OTHER_HANDLER = ('other', 'Other Request Handler')
 
 MESSAGE_HANDLER_CHOICES = (INBOX_MESSAGE_HANDLER, POLL_REQUEST_HANDLER, POLL_FULFILLMENT_REQUEST_HANDLER, 
                 DISCOVERY_REQUEST_HANDLER, COLLECTION_INFORMATION_REQUEST_HANDLER, 
-                SUBSCRIPTION_MANAGEMENT_REQUEST_HANDLER, OTHER_HANDLER)
+                SUBSCRIPTION_MANAGEMENT_REQUEST_HANDLER)
 
 ACTIVE_STATUS = (tm11.SS_ACTIVE, 'Active')
 PAUSED_STATUS = (tm11.SS_PAUSED, 'Paused')
@@ -53,15 +54,20 @@ ROP_CHOICES = (REQUIRED, OPTIONAL, PROHIBITED)
 
 #TODO: probably "unique=True" could be used at least once in each model. should try to figure out where it makes sense.
 
-# TODO: Each model could probably use an is_serializable() and serialize() method.
-# .... hmm ....
-
 class Validator(models.Model):
     """
+    Model for Validators. A Validator, at the moment,
+    is an idea only. Eventually, it would be nice to be
+    able to have content that comes in be passed to an
+    automatic validator before storage.
+    
+    At some point, if a validator gets invented, this 
+    model will leverage that validator concept.
     """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
-    validator = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+    validator = models.CharField(max_length=MAX_NAME_LENGTH, unique=True, validators=[validate_importable])
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -73,6 +79,12 @@ class Validator(models.Model):
         ordering = ['name']
 
 class ContentBinding(models.Model):
+    """
+    Model for Content Binding IDs. Subtypes are stored in a different model.
+    
+    See also: ContentBindingAndSubtype
+    """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
     binding_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
@@ -81,15 +93,18 @@ class ContentBinding(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        if self.name:
-            return u'%s' % (self.name)
-        else:
-            return u'%s' % (self.binding_id)
+        return u'%s (%s)' % (self.name, self.binding_id)
         
     class Meta:
         verbose_name = "Content Binding"
 
 class ContentBindingSubtype(models.Model):
+    """
+    Model for Content Binding Subtypes. Content Bindings are stored in a different model.
+    
+    See also: ContentBindingAndSubtype.
+    """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
     parent = models.ForeignKey(ContentBinding)
@@ -99,26 +114,24 @@ class ContentBindingSubtype(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        if self.name:
-            return u'%s' % (self.name)
-        else:
-            return u'%s' % (self.subtype_id)
+        return u'%s (%s)' % (self.name, self.subtype_id)
         
     class Meta:
         verbose_name = "Content Binding Subtype"
 
 class ContentBindingAndSubtype(models.Model):
+    """
+    Model that relates ContentBindings to ContentBindingSubtypes.
+    """
+    
     content_binding = models.ForeignKey(ContentBinding)
     subtype = models.ForeignKey(ContentBindingSubtype, blank=True, null=True)
-    #TODO: Add an enabled/disabled button
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        #uni = "%s (%s) > " % (self.content_binding.name, self.content_binding.binding_id)
         uni = "%s > " % self.content_binding.name
         if self.subtype:
-            #uni += "%s (%s)" % (self.subtype.name, self.subtype.subtype_id)
             uni += "%s" % self.subtype.name
         else:
             uni += "(All)"
@@ -130,6 +143,12 @@ class ContentBindingAndSubtype(models.Model):
         unique_together = ('content_binding', 'subtype',)
 
 def update_content_binding(sender, **kwargs):
+    """
+    When a Content Binding gets created, a new entry needs to be
+    created in ContentBindingAndSubtype. This method performs that
+    action.
+    """
+    
     if not kwargs['created']:
         return
     
@@ -137,25 +156,22 @@ def update_content_binding(sender, **kwargs):
     cbas.save()
 
 def update_content_binding_subtype(sender, **kwargs):
+    """
+    When a Content Binding Subtype gets created, a new entry needs to be
+    created in ContentBindingAndSubtype. This method performs that
+    action.
+    """
+    
     if not kwargs['created']:
         return
     subtype = kwargs['instance']
     cbas = ContentBindingAndSubtype(content_binding = subtype.parent, subtype = subtype)
     cbas.save()
 
+# Link the update_content_binding[_subtype] functions to the objects
+# Post delete handlers don't need to be written because they are part of how foreign keys work
 post_save.connect(update_content_binding, sender=ContentBinding)
 post_save.connect(update_content_binding_subtype, sender=ContentBindingSubtype)
-#Post delete handlers don't need to be written because they are part of how foreign keys work
-
-class RecordCount(models.Model):
-    record_count = models.IntegerField()
-    partial_count = models.BooleanField(default=False)
-
-class SubscriptionInformation(models.Model):
-    collection_name = models.CharField(max_length=MAX_NAME_LENGTH)
-    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH)#TODO: Index on this
-    exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
-    inclusive_end_timestamp_label = models.DateTimeField(blank=True, null=True)
 
 class MessageBinding(models.Model):
     """
@@ -165,6 +181,7 @@ class MessageBinding(models.Model):
     Ex:
     XML message binding id : "urn:taxii.mitre.org:message:xml:1.1"
     """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True)
     description = models.TextField(blank=True)
     binding_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
@@ -172,10 +189,7 @@ class MessageBinding(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        if self.name:
-            return u'%s' % (self.name)
-        else:
-            return u'%s' % (self.binding_id)
+        return u'%s (%s)' % (self.name, self.binding_id)
 
     class Meta:
         verbose_name = "Message Binding"
@@ -188,6 +202,7 @@ class ProtocolBinding(models.Model):
     Ex:
     HTTP Protocol Binding : "urn:taxii.mitre.org:protocol:http:1.0"
     """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True)
     description = models.TextField(blank=True)
     binding_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
@@ -195,15 +210,16 @@ class ProtocolBinding(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        if self.name:
-            return u'%s' % (self.name)
-        else:
-            return u'%s' % (self.binding_id)
+        return u'%s (%s)' % (self.name, self.binding_id)
 
     class Meta:
         verbose_name = "Protocol Binding"
 
 class DataCollection(models.Model):
+    """
+    Model for a TAXII Data Collection
+    """
+    
     name = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
     description = models.TextField(blank=True)
     type = models.CharField(max_length=MAX_NAME_LENGTH, choices=DATA_COLLECTION_CHOICES)#Choice - Data Feed or Data Set
@@ -218,29 +234,76 @@ class DataCollection(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'%s' % (self.name)
+        return u'%s (%s)' % (self.name, self.type)
 
     class Meta:
         ordering = ['name']
         verbose_name = "Data Collection"
 
-class ServiceHandler(models.Model):
+class MessageHandler(models.Model):
     """
+    Testing out a new concept.
     """
     
     name = models.CharField(max_length=MAX_NAME_LENGTH)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, editable=False)
     handler = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
-    type = models.CharField(max_length=MAX_NAME_LENGTH, choices = MESSAGE_HANDLER_CHOICES)
+    module_name = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    class_name = models.CharField(max_length=MAX_NAME_LENGTH, editable= False)
+    supported_messages = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    class_hash = models.CharField(max_length=MAX_NAME_LENGTH, editable=False) #This is used to determine if the class has changed on load
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def clean(self):
+        module_name, class_name = self.handler.rsplit('.', 1)
+        try:
+            module = import_module(module_name)
+        except:
+            raise ValidationError('Module (%s) could not be imported: %s' % (module_name, str(sys.exc_info())))
+        
+        try:
+            handler_class = getattr(module, class_name)
+        except:
+            raise ValidationError('Class (%s) was not found in module (%s).' % (class_name, module_name))
+        
+        if (  'handle_message' not in dir(handler_class) or
+           not str(handler_class.handle_message).startswith("<function")  ):
+            raise ValidationError('Class (%s) does not appear to have a \'handle_message\' @staticmethod function declared!' % class_name)
+        
+        try:
+            handler_class()
+        except:
+            print 'There was a problem instantiating the class!'
+            raise
+        
+        self.module_name = module_name
+        self.class_name = class_name
+        
+        try:
+            self.description = handler_class.__doc__.strip()
+        except:
+            raise ValidationError('Class Description could not be found. Attempted .__doc__.strip()' % (method_name, module_name))
+        
+        try:
+            self.supported_messages = handler_class.get_supported_request_messages()
+        except:
+            raise ValidationError('There was a problem getting the list of supported messages: %s' % str(sys.exc_info()))
+        
+        try:
+            self.class_hash = hash(handler_class)
+        except:
+            print 'There was a problem getting the list of supported messages!'
+            raise
+            
     
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.handler)
     
     class Meta:
         ordering = ['name']
+        verbose_name = "Message Handler"
 
 class _TaxiiService(models.Model):
     """
@@ -258,30 +321,25 @@ class _TaxiiService(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'%s' % self.name
+        return u'%s (%s)' % (self.name, self.path)
     
     class Meta:
         ordering = ['name']
         
 
 class InboxService(_TaxiiService):
-    inbox_message_handler = models.ForeignKey(ServiceHandler, limit_choices_to={'type__in': [tm11.MSG_INBOX_MESSAGE, 'other']})
+    inbox_message_handler = models.ForeignKey(MessageHandler, limit_choices_to={'supported_messages__contains': 'InboxMessage'})
     destination_collection_status = models.CharField(max_length=MAX_NAME_LENGTH, choices=ROP_CHOICES)
     destination_collections = models.ManyToManyField(DataCollection, blank=True)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
     
     #TODO: Whast does it mean when the inbox supports a content binding that it's underlying data collections dont?
-    #TODO: How to handle subtypes?
     #TODO: How does destination_collections impact which
     #      Content Bindings are supported?
-    
-    #TODO: Does this do what I want, or do I need to 
-    # do something like self.meta.verbose_name = 'dsa' ?
-    #class Meta:
-    #    verbose_name = "Inbox Service"
-    #    verbose_name_plural = "Inbox Services"
 
+    class Meta:
+        verbose_name = "Inbox Service"
 
 class InboxMessage(models.Model):
     """
@@ -293,8 +351,17 @@ class InboxMessage(models.Model):
     sending_ip = models.CharField(max_length=MAX_NAME_LENGTH)
     datetime_received = models.DateTimeField(auto_now_add=True)
     result_id = models.CharField(max_length=MAX_NAME_LENGTH, blank=True, null=True)
-    record_count = models.ForeignKey(RecordCount, blank=True, null=True)
-    subscription_information = models.ForeignKey(SubscriptionInformation, blank=True, null=True)
+    
+    #Record Count items
+    record_count = models.IntegerField(blank=True, null=True)
+    partial_count = models.BooleanField(default=False)
+    
+    #Subscription Information items
+    collection_name = models.CharField(max_length=MAX_NAME_LENGTH, blank=True, null=True)
+    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, blank=True, null=True)
+    exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
+    inclusive_end_timestamp_label = models.DateTimeField(blank=True, null=True)
+    
     received_via = models.ForeignKey(InboxService, blank=True, null=True)
     original_message = models.TextField(blank=True, null=True)
     content_block_count = models.IntegerField()
@@ -305,9 +372,10 @@ class InboxMessage(models.Model):
     
     class Meta:
         ordering = ['datetime_received']
+        verbose_name = "Inbox Message"
 
 class ContentBlock(models.Model):
-    description = models.TextField(blank=True) # not required by TAXII
+    message = models.TextField(blank=True)
     
     timestamp_label = models.DateTimeField(auto_now_add=True)
     inbox_message = models.ForeignKey(InboxMessage, blank=True, null=True)
@@ -321,36 +389,41 @@ class ContentBlock(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'%s' % (self.id)
+        return u'#%s: %s; %s' % (self.id, self.content_binding_and_subtype, self.timestamp_label.isoformat())
 
     class Meta:
         ordering = ['timestamp_label']
         verbose_name = "Content Block"
 
 class PollService(_TaxiiService):
-    poll_request_handler = models.ForeignKey(ServiceHandler, related_name='poll_request', limit_choices_to={'type__in': [tm11.MSG_POLL_REQUEST, 'other']})
-    poll_fulfillment_handler = models.ForeignKey(ServiceHandler, related_name='poll_fulfillment', limit_choices_to={'type__in': [tm11.MSG_POLL_FULFILLMENT_REQUEST, 'other']}, blank=True, null=True)
+    poll_request_handler = models.ForeignKey(MessageHandler, related_name='poll_request', limit_choices_to={'supported_messages__contains': 'PollRequest'})
+    poll_fulfillment_handler = models.ForeignKey(MessageHandler, related_name='poll_fulfillment', limit_choices_to={'supported_messages__contains': 'PollFulfillmentRequest'}, blank=True, null=True)
     data_collections = models.ManyToManyField(DataCollection)
+    supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    
+    class Meta:
+        verbose_name = "Poll Service"
 
 
 class CollectionManagementService(_TaxiiService):
-    collection_information_handler = models.ForeignKey(ServiceHandler, related_name='collection_information', limit_choices_to={'type__in': [tm11.MSG_COLLECTION_INFORMATION_REQUEST, 'other']}, blank=True, null=True)
-    subscription_management_handler = models.ForeignKey(ServiceHandler, related_name='subscription_management', limit_choices_to={'type__in': [tm11.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST, 'other']}, blank=True, null=True)
+    collection_information_handler = models.ForeignKey(MessageHandler, related_name='collection_information', limit_choices_to={'supported_messages__contains': 'CollectionInformationRequest'}, blank=True, null=True)
+    subscription_management_handler = models.ForeignKey(MessageHandler, related_name='subscription_management', limit_choices_to={'supported_messages__contains': 'ManageCollectionSubscriptionRequest'}, blank=True, null=True)
     advertised_collections = models.ManyToManyField(DataCollection, blank=True, null=True)#TODO: This field is also used to determine which Collections this service processes subscriptions for. Is that right?
     #TODO: Add a validation step to make sure at least one of subscription management or collection_information handler is selected.
+    supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    
+    class Meta:
+        verbose_name = "Collection Management Service"
 
 class DiscoveryService(_TaxiiService):
-    discovery_handler = models.ForeignKey(ServiceHandler, limit_choices_to={'type__in': [tm11.MSG_DISCOVERY_REQUEST, 'other']})
+    discovery_handler = models.ForeignKey(MessageHandler, limit_choices_to={'supported_messages__contains': 'DiscoveryRequest'})
     advertised_discovery_services = models.ManyToManyField('self', blank=True)
     advertised_inbox_services = models.ManyToManyField(InboxService, blank=True)
     advertised_poll_services = models.ManyToManyField(PollService, blank=True)
     advertised_collection_management_services = models.ManyToManyField(CollectionManagementService, blank=True)
-
-#TODO: Something using GenericForeignKey could be used to create a service registry    
-#class ServiceRegistry(models.Model):
-#    content_type = models.ForeignKey(ContentType)
-#    object_id = models.PositiveIntegerField()
-#    content_object = generic.GenericForeignKey('content_type', 'object_id')
+    
+    class Meta:
+        verbose_name = "Discovery Service"
 
 class Subscription(models.Model):
     subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
@@ -363,13 +436,98 @@ class Subscription(models.Model):
     status = models.CharField(max_length=MAX_NAME_LENGTH, choices = SUBSCRIPTION_STATUS_CHOICES, default=tm11.SS_ACTIVE)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'Subscription ID: %s' % self.subscription_id
 
 class ResultSet(models.Model):
     #pk is a django auto-field
     data_collection = models.ForeignKey(DataCollection)
-    content_blocks = models.ManyToManyField(ContentBlock, blank=True, null=True)
+    subscription = models.ForeignKey(Subscription, blank=True, null=True)
     total_content_blocks = models.IntegerField()
-    last_part_requested = models.IntegerField(blank=True, null=True)
+    #TODO: Figure out how to limit choices to only the ResultSetParts that belong to this ResultSet
+    last_part_returned = models.ForeignKey('ResultSetPart', blank=True, null=True)
     expires = models.DateTimeField()
+    # TODO: There's nothing in here for pushing. It should be added
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'ResultSet ID: %s; Collection: %s; Parts: %s.' % (self.id, self.data_collection, self.resultsetpart_set.count())
+    
+    class Meta:
+        verbose_name = "Result Set"
+
+class ResultSetPart(models.Model):
+    result_set = models.ForeignKey(ResultSet)
+    part_number = models.IntegerField()
+    content_blocks = models.ManyToManyField(ContentBlock)
+    content_block_count = models.IntegerField()
+    more = models.BooleanField()
+    exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
+    inclusive_end_timestamp_label = models.DateTimeField(blank=True, null=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % (self.result_set.id, self.result_set.data_collection, self.part_number)
+    
+    class Meta:
+        verbose_name = "Result Set Part"
+        unique_together = ('result_set', 'part_number',)
+
+class DefaultQueryScope(models.Model):
+    name = models.CharField(max_length=MAX_NAME_LENGTH)
+    description = models.TextField(blank=True)
+    scope = models.CharField(max_length=MAX_NAME_LENGTH)
+    
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'%s (%s)' % (self.name, self.scope)
+
+class QueryHandler(models.Model):
+    """
+    A model for Query Handlers. A query handler is a function that
+    takes two arguments: A query and a content block and returns 
+    True if the Content Block passes the query and False otherwise.
+    """
+    
+    name = models.CharField(max_length=MAX_NAME_LENGTH)
+    targeting_expression_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+    description = models.TextField(blank=True)
+    handler = models.CharField(max_length=MAX_NAME_LENGTH, validators=[validate_importable])
+    #type = models.CharField(max_length=MAX_NAME_LENGTH, choices = MESSAGE_HANDLER_CHOICES)
+    
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'%s (%s)' % (self.name, self.handler)
+    
+    class Meta:
+        ordering = ['name']
+
+class SupportedQuery(models.Model):
+    """
+    QueryInformation maps most directly to the 
+    Targeting Expression Info field in the TAXII Default
+    Query spec.
+    """
+    name = models.CharField(max_length=MAX_NAME_LENGTH)
+    description = models.TextField(blank=True)
+    
+    query_handler = models.ForeignKey(QueryHandler)
+    preferred_scope = models.ManyToManyField(DefaultQueryScope, blank=True, null=True, related_name='preferred_scope')
+    allowed_scope = models.ManyToManyField(DefaultQueryScope, blank=True, null=True, related_name='allowed_scope')
+    
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_updated = models.DateTimeField(auto_now=True)
+    
+    def __unicode__(self):
+        return u'%s' % self.name
+    
+    class Meta:
+        verbose_name = "Supported Query"
+        verbose_name_plural = "Supported Queries"

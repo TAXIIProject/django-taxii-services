@@ -16,7 +16,7 @@ def get_version():
                 return version
         raise AttributeError("Package does not have a __version__")
 if sys.version_info < (2, 6):
-    raise Exception('django-taxii_services requires Python 2.6 or higher.')
+    raise Exception('django-taxii-services requires Python 2.6 or higher.')
 
 install_requires = [''] #TODO: Doesn't require anything yet
 
@@ -46,5 +46,5 @@ setup(name='taxii_services',
       install_requires=install_requires,
       extras_require=extras_require,
       long_description=long_description,
-      keywords="taxii django taxii_services",
+      keywords="taxii django taxii_services django-taxii-services",
       )

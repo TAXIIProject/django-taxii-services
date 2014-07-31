@@ -4,9 +4,6 @@
 from django.contrib import admin
 import models
 
-class ContentBindingSubtypeInline(admin.TabularInline):
-    model = models.ContentBindingSubtype
-
 class DataCollectionAdmin(admin.ModelAdmin):
     filter_vertical = ("supported_content", )
     #TODO: make checking 'accept all content' disable the supported content selector
@@ -28,6 +25,11 @@ class InboxServiceAdmin(admin.ModelAdmin):
     pass
 
 class InboxMessageAdmin(admin.ModelAdmin):
+    readonly_fields = ('message_id', 'sending_ip', 'result_id', 
+                      'record_count', 'partial_count', 'collection_name', 
+                      'subscription_id', 'exclusive_begin_timestamp_label',
+                      'inclusive_end_timestamp_label', 'received_via', 
+                      'original_message', 'content_block_count', 'content_blocks_saved')
     pass
 
 class DiscoveryServiceAdmin(admin.ModelAdmin):
@@ -44,7 +46,10 @@ class ProtocolBindingAdmin(admin.ModelAdmin):
 
 class MessageBindingAdmin(admin.ModelAdmin):
     pass
-    
+
+class ContentBindingSubtypeInline(admin.TabularInline):
+    model = models.ContentBindingSubtype
+
 class ContentBindingAdmin(admin.ModelAdmin):
     #list_display = ['name', 'description', 'id', 'binding_id', 'date_created', 'date_updated']
     inlines = [ContentBindingSubtypeInline]
@@ -60,35 +65,60 @@ class ContentBlockAdmin(admin.ModelAdmin):
 #class ContentBindingAndSubtypeAdmin(admin.ModelAdmin):
 #    pass
 
-class ServiceHandlerAdmin(admin.ModelAdmin):
-    pass
+#class ServiceHandlerAdmin(admin.ModelAdmin):
+    #pass
 
 class ValidatorAdmin(admin.ModelAdmin):
     pass
 
+class ResultSetPartInline(admin.TabularInline):
+    model = models.ResultSetPart
+
 class ResultSetAdmin(admin.ModelAdmin):
-    pass
+    inlines = [ResultSetPartInline]
 #    list_display = ['result_id', 'data_collection', 'begin_ts', 'end_ts']
+
+#class TargetingExpressionAdmin(admin.ModelAdmin):
+    #pass
+
+class SupportedQueryAdmin(admin.ModelAdmin):
+    pass
+
+class QueryHandlerAdmin(admin.ModelAdmin):
+    pass
+
+class DefaultQueryScopeAdmin(admin.ModelAdmin):
+    pass
+
+class MessageHandlerAdmin(admin.ModelAdmin):
+    list_display = ['name', 'description', 'module_name', 'class_name', 'supported_messages', 'class_hash']
+
+#class CapabilityModuleAdmin(admin.ModelAdmin):
+#    pass
 
 def register_admins():
     """
     This function registers all the model admins. This isn't done by default.
     """
-    admin.site.register(models.InboxService, InboxServiceAdmin)
-    admin.site.register(models.DiscoveryService, DiscoveryServiceAdmin)
-    admin.site.register(models.PollService, PollServiceAdmin)
     admin.site.register(models.CollectionManagementService, CollectionManagementServiceAdmin)
-    admin.site.register(models.DataCollection, DataCollectionAdmin)
-    admin.site.register(models.ContentBlock, ContentBlockAdmin)
-    admin.site.register(models.MessageBinding, MessageBindingAdmin)
     admin.site.register(models.ContentBinding, ContentBindingAdmin)
-    #admin.site.register(models.ContentBindingSubtype, ContentBindingSubtypeAdmin)
-    admin.site.register(models.ProtocolBinding, ProtocolBindingAdmin)
-    admin.site.register(models.ServiceHandler, ServiceHandlerAdmin)
-    admin.site.register(models.Validator, ValidatorAdmin)
+    admin.site.register(models.ContentBlock, ContentBlockAdmin)
+    admin.site.register(models.DataCollection, DataCollectionAdmin)
+    admin.site.register(models.DiscoveryService, DiscoveryServiceAdmin)
     admin.site.register(models.InboxMessage, InboxMessageAdmin)
-    #admin.site.register(models.ContentBindingAndSubtype, ContentBindingAndSubtypeAdmin)
+    admin.site.register(models.InboxService, InboxServiceAdmin)
+    admin.site.register(models.MessageBinding, MessageBindingAdmin)
+    admin.site.register(models.PollService, PollServiceAdmin)
+    admin.site.register(models.ProtocolBinding, ProtocolBindingAdmin)
     admin.site.register(models.ResultSet, ResultSetAdmin)
-    #admin.site.register(DataCollectionPushMethod)
-    #admin.site.register(DataCollectionPollInformation)
-    #admin.site.register(DataCollectionSubscriptionMethod)
+    #admin.site.register(models.ServiceHandler, ServiceHandlerAdmin)
+    admin.site.register(models.Validator, ValidatorAdmin)
+    
+    admin.site.register(models.MessageHandler, MessageHandlerAdmin)
+    
+    #Query stuff - the be put into the alphabetized list later
+    #admin.site.register(models.CapabilityModule, CapabilityModuleAdmin)
+    #admin.site.register(models.TargetingExpression, TargetingExpressionAdmin)
+    admin.site.register(models.SupportedQuery, SupportedQueryAdmin)
+    admin.site.register(models.QueryHandler, QueryHandlerAdmin)
+    admin.site.register(models.DefaultQueryScope, DefaultQueryScopeAdmin)
