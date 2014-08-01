@@ -85,7 +85,7 @@ class SupportedQueryAdmin(admin.ModelAdmin):
     pass
 
 class QueryHandlerAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['name', 'description', 'module_name', 'class_name', 'targeting_expression_id', 'capability_modules', 'class_hash']
 
 class DefaultQueryScopeAdmin(admin.ModelAdmin):
     pass

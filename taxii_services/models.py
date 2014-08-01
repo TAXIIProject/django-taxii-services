@@ -65,6 +65,7 @@ class Validator(models.Model):
     model will leverage that validator concept.
     """
     
+    #TODO: Update this class to extend _Handler
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
     validator = models.CharField(max_length=MAX_NAME_LENGTH, unique=True, validators=[validate_importable])
@@ -240,21 +241,33 @@ class DataCollection(models.Model):
         ordering = ['name']
         verbose_name = "Data Collection"
 
-class MessageHandler(models.Model):
+class _Handler(models.Model):
     """
-    Testing out a new concept.
+    A handler is an extension point that allows user-defined code to be used
+    in conjunction with django-taxii-services
     """
+    #Subclasses use this to indicate what function they call for handling
+    handler_function = None
     
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True, editable=False)
     handler = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
     module_name = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
     class_name = models.CharField(max_length=MAX_NAME_LENGTH, editable= False)
-    supported_messages = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    #TODO: This might not be a kosher way of checking if the function/class has changed
     class_hash = models.CharField(max_length=MAX_NAME_LENGTH, editable=False) #This is used to determine if the class has changed on load
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def get_handler_class(self):
+        """
+        Gets a handle on the class
+        """
+        module = import_module(self.module_name)
+        handler_class = getattr(module, self.class_name)
+        return handler_class
+        
     
     def clean(self):
         module_name, class_name = self.handler.rsplit('.', 1)
@@ -268,15 +281,11 @@ class MessageHandler(models.Model):
         except:
             raise ValidationError('Class (%s) was not found in module (%s).' % (class_name, module_name))
         
-        if (  'handle_message' not in dir(handler_class) or
-           not str(handler_class.handle_message).startswith("<function")  ):
+        #TODO: probably a subclass thing
+        #TODO: Currently assumes that the handler_function is always static - is that assumption true?
+        if (  self.handler_function not in dir(handler_class) or
+           not str(getattr(handler_class, self.handler_function)).startswith("<function")  ):
             raise ValidationError('Class (%s) does not appear to have a \'handle_message\' @staticmethod function declared!' % class_name)
-        
-        try:
-            handler_class()
-        except:
-            print 'There was a problem instantiating the class!'
-            raise
         
         self.module_name = module_name
         self.class_name = class_name
@@ -287,22 +296,34 @@ class MessageHandler(models.Model):
             raise ValidationError('Class Description could not be found. Attempted .__doc__.strip()' % (method_name, module_name))
         
         try:
-            self.supported_messages = handler_class.get_supported_request_messages()
-        except:
-            raise ValidationError('There was a problem getting the list of supported messages: %s' % str(sys.exc_info()))
-        
-        try:
             self.class_hash = hash(handler_class)
         except:
             print 'There was a problem getting the list of supported messages!'
             raise
-            
+        
+        return handler_class#This is used by subclasses to extract subclass-specific attrs
     
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.handler)
     
     class Meta:
         ordering = ['name']
+
+class MessageHandler(_Handler):
+    """
+    Testing out a new concept.
+    """
+    handler_function = 'handle_message'
+    supported_messages = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    
+    def clean(self):
+        handler_class = super(MessageHandler, self).clean()
+        try:
+            self.supported_messages = handler_class.get_supported_request_messages()
+        except:
+            raise ValidationError('There was a problem getting the list of supported messages: %s' % str(sys.exc_info()))
+    
+    class Meta:
         verbose_name = "Message Handler"
 
 class _TaxiiService(models.Model):
@@ -400,6 +421,7 @@ class PollService(_TaxiiService):
     poll_fulfillment_handler = models.ForeignKey(MessageHandler, related_name='poll_fulfillment', limit_choices_to={'supported_messages__contains': 'PollFulfillmentRequest'}, blank=True, null=True)
     data_collections = models.ManyToManyField(DataCollection)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    #TODO: Consider adding a bool field for requires_subscription
     
     class Meta:
         verbose_name = "Poll Service"
@@ -433,6 +455,8 @@ class Subscription(models.Model):
     supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
     query = models.TextField(blank=True)
     #push_parameters = models.ForeignKey(PushParameters)#TODO: Create a push parameters object
+    #TODO: Create a variable to hold whether push, pull, or both can happen from this subscription
+    #TODO: Consider adding a 'paused_datetime' field to keep track of when subscriptions are paused
     status = models.CharField(max_length=MAX_NAME_LENGTH, choices = SUBSCRIPTION_STATUS_CHOICES, default=tm11.SS_ACTIVE)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -479,6 +503,7 @@ class ResultSetPart(models.Model):
 class DefaultQueryScope(models.Model):
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
+    #TODO: Add a validator on the scope to make sure the syntax is correct
     scope = models.CharField(max_length=MAX_NAME_LENGTH)
     
     date_created = models.DateTimeField(auto_now_add=True)
@@ -487,27 +512,31 @@ class DefaultQueryScope(models.Model):
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.scope)
 
-class QueryHandler(models.Model):
+class QueryHandler(_Handler):
     """
     A model for Query Handlers. A query handler is a function that
     takes two arguments: A query and a content block and returns 
     True if the Content Block passes the query and False otherwise.
     """
     
-    name = models.CharField(max_length=MAX_NAME_LENGTH)
-    targeting_expression_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
-    description = models.TextField(blank=True)
-    handler = models.CharField(max_length=MAX_NAME_LENGTH, validators=[validate_importable])
-    #type = models.CharField(max_length=MAX_NAME_LENGTH, choices = MESSAGE_HANDLER_CHOICES)
+    handler_function = 'execute_query'
     
-    date_created = models.DateTimeField(auto_now_add=True)
-    date_updated = models.DateTimeField(auto_now=True)
+    targeting_expression_id = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    capability_modules = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
     
-    def __unicode__(self):
-        return u'%s (%s)' % (self.name, self.handler)
-    
-    class Meta:
-        ordering = ['name']
+    def clean(self):
+        handler_class = super(QueryHandler, self).clean()
+        
+        try:
+            self.targeting_expression_id = handler_class.get_supported_targeting_expression()
+        except:
+            raise ValidationError('There was a problem getting the supported targeting expression: %s' % str(sys.exc_info()))
+        
+        try:
+            self.capability_modules = handler_class.get_supported_capability_modules()
+        except:
+            raise ValidationError('There was a problem getting the list of supported capability modules: %s' % str(sys.exc_info()))
+        
 
 class SupportedQuery(models.Model):
     """
@@ -524,6 +553,20 @@ class SupportedQuery(models.Model):
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    #TODO: Apparantly M2M fields can't be clean()'d in Django
+    # Need to find another way to do this...
+    # def clean(self):
+        # handler_class = self.query_handler.get_handler_class()
+        # for ps in self.preferred_scope:
+            # supported, message = handler_class.is_scope_supported(ps)
+            # if not supported:
+                # raise ValidationError("Preferred Scope not supported: %s" % message)
+        
+        # for as_ in self.allowed_scope:
+            # supported, message = handler_class.is_scope_supported(as_)
+            # if not supported:
+                # raise ValidationError("Allowed Scope not supported: %s" % message)
     
     def __unicode__(self):
         return u'%s' % self.name

@@ -18,24 +18,47 @@ class DefaultQueryHandler(object):
     Extend this for query support
     """
     
-    def get_supported_capability_modules(self):
+    supported_targeting_expression = None
+    supported_capability_modules = None
+    supported_scope_message = None
+    
+    @classmethod
+    def get_supported_capability_modules(cls):
         """
-        Implemented by child classes to indicate which 
-        Capability Modules are supported.
-        
-        MUST return an iterable of Capability Module IDs
+        Returns a list of strings indicating the Capability Modules this 
+        class supports. Pulls from the 
+        supported_capability_modules class variable set by the 
+        child class
+        """
+        if not cls.supported_capability_modules:
+            raise ValueError('The variable \'supported_capability_modules\' has not been defined by the subclass!')
+        return cls.supported_capability_modules
+    
+    @classmethod
+    def get_supported_targeting_expression(cls):
+        """
+        Returns a string indicating the targeting expression this 
+        class supports. Pulls from the 
+        supported_targeting_expression class variable set by the 
+        child class
+        """
+        if not cls.supported_targeting_expression:
+            raise ValueError('The variable \'supported_targeting_expression\' has not been defined by the subclass!')
+        return cls.supported_targeting_expression
+    
+    @classmethod
+    def get_supported_scope_message(cls):
+        pass#TODO: is this worthwhile?
+    
+    @staticmethod
+    def is_scope_supported(scope):
+        """
+        Given a DefaultQueryScope object, return True
+        if that scope is supported or False if it is not.
         """
         raise NotImplementedError()
     
-    def get_supported_targeting_expression(self):
-        """
-        Implemented by child classes to indicate which
-        Targeting Expression is supported.
-        
-        MUST return a string
-        """
-        raise NotImplementedError()
-    
+    @staticmethod
     def execute_query(content_block_list, query):
         """
         Given a query and a list of tm11.ContentBlock objects,
@@ -43,9 +66,6 @@ class DefaultQueryHandler(object):
         match the query
         """
         raise NotImplementedError()
-    
-    def __call__(self, content_block, query):
-        return self.execute_query(content_block, query)
 
 class MessageHandler(object):
     """
@@ -348,12 +368,20 @@ class PollRequestHandler(MessageHandler):
         # (Query is a libtaxii.taxii_default_query object)
         if query is not None:
             try:
+                #In theory, you could have two supported_query objects that use
+                #The same query handler but have different Supported/Preferred Queries
+                # Unless.... The Supported/Preferred Queries is a property of the 
+                # Class and not a configuration item.
+                # That would be nice!
                 query_handler = poll_service.supported_queries.get(query_handler__targeting_expression_id = query.targeting_expression_id)
             except:
                 raise # TODO: Return a proper Status Message saying query not supported
             
+            #TODO: Add a part where we ask the query handler if it supported
+            # the query or something
+            
             result_set = []
-            for result in results:
+            for result in results:#TODO: The code in this block hasn't been tested and will probably fail
                 if query_handler(result, query):
                     result_set.append(result)
             
@@ -564,6 +592,11 @@ class ManageCollectionSubscriptionRequestHandler(MessageHandler):
         
         # 6. Pausing is idempotent
         if smr.action == tm11.ACT_PAUSE:
+            #TODO: For pause, need to note when the pause happened so delivery of content can resum
+            # continuously
+            # Maybe update to say if status != paused_status
+            #                               status = paused_status
+            # and use the last_udpated as a note of when the pause happened
             subscription.status = models.PAUSED_STATUS
             subscription.save()
             response.subscription_instances.append(get_subscription_instance(subscription))
@@ -588,12 +621,14 @@ class Stix111QueryHandler(DefaultQueryHandler):
     Handles TAXII Default Queries for STIX 1.1.1
     """
     
-    def get_supported_capability_modules(self):
-        return [tdq.CM_CORE, tdq.CM_REGEX, tdq.CM_TIMESTAMP]
+    supported_targeting_expression = t.CB_STIX_XML_111
+    supported_capability_modules = [tdq.CM_CORE, tdq.CM_REGEX, tdq.CM_TIMESTAMP]
     
-    def get_supported_targeting_expression(self):
-        return t.CB_STIX_XML_111
+    @staticmethod
+    def is_scope_supported(scope):
+        return False, "Nothing is supported at the moment"
     
+    @staticmethod
     def execute_query(content_block_list, query):
         #TODO: Actually implement this!
         return content_block_list

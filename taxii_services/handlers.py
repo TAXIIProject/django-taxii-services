@@ -39,6 +39,26 @@ def get_service_from_path(path):
     
     raise Http404("No TAXII service at specified path")
 
+# TODO: This persists even when the registering code 
+# doesn't register itself anymore...
+#TODO: This fails if the database hasn't been created yet
+def register_message_handler(message_handler, name='Default Name'):
+    """
+    Given a message handler, attempts to create a 
+    MessageHandler in the database.
+    
+    This function overwrites anything already in the database
+    """
+    
+    module = message_handler.__module__
+    class_ = message_handler.__name__
+    
+    handler_string = module + "." + class_
+    
+    mh, created = models.MessageHandler.objects.get_or_create(handler = handler_string, name=name)
+    mh.clean()
+    mh.save()
+
 def get_message_handler(service, taxii_message):
     """
     Given a service and a TAXII Message, return the 

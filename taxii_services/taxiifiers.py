@@ -138,9 +138,9 @@ def supported_query_to_query_info(supported_query):
             preferred_scope = preferred_scope,
             allowed_scope = allowed_scope)
     
-    # TODO: Figure out where this list should come from!
-    cm_list = [tdq.CM_CORE, tdq.CM_REGEX, tdq.CM_TIMESTAMP]
-    
+    map = dict((ord(char), None) for char in " []\'")
+    cm_list = supported_query.query_handler.capability_modules.translate(map).split(',')
+
     dqi = tdq.DefaultQueryInfo(
                 targeting_expression_infos = [tei],
                 capability_modules = cm_list)
