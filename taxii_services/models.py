@@ -43,16 +43,20 @@ DISCOVERY_REQUEST_10_HANDLER = (tm10.MSG_DISCOVERY_REQUEST,
                                 'Discovery Service - Discovery Request Handler (TAXII 1.0)')
 #: TAXII 1.1 Collection Information Request Handler
 COLLECTION_INFORMATION_REQUEST_11_HANDLER = (tm11.MSG_COLLECTION_INFORMATION_REQUEST, 
-                                          'Collection Management Service - Collection Information Handler (TAXII 1.1)')
+                                          'Collection Management Service - \
+                                          Collection Information Handler (TAXII 1.1)')
 #: TAXII 1.0 Collection Information Request Handler
 COLLECTION_INFORMATION_REQUEST_10_HANDLER = (tm10.MSG_COLLECTION_INFORMATION_REQUEST, 
-                                             'Collection Management Service - Collection Information Handler (TAXII 1.0)')
+                                             'Collection Management Service - \
+                                             Collection Information Handler (TAXII 1.0)')
 #: TAXII 1.1 Subscription Management Request Handler
 SUBSCRIPTION_MANAGEMENT_REQUEST_11_HANDLER = (tm11.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 
-                                           'Collection Management Service - Subscription Management Handler (TAXII 1.1)')
+                                           'Collection Management Service - \
+                                           Subscription Management Handler (TAXII 1.1)')
 #: TAXII 1.0 Subscription Management Request Handler
 SUBSCRIPTION_MANAGEMENT_REQUEST_10_HANDLER = (tm10.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 
-                                              'Collection Management Service - Subscription Management Handler (TAXII 1.0)')
+                                              'Collection Management Service - \
+                                              Subscription Management Handler (TAXII 1.0)')
 #: Tuple of all message handler choices
 MESSAGE_HANDLER_CHOICES = (INBOX_MESSAGE_11_HANDLER, POLL_REQUEST_11_HANDLER, 
                            POLL_FULFILLMENT_REQUEST_11_HANDLER, DISCOVERY_REQUEST_11_HANDLER, 
@@ -150,16 +154,19 @@ class _Handler(models.Model):
         try:
             module = import_module(module_name)
         except:
-            raise ValidationError('Module (%s) could not be imported: %s' % (module_name, str(sys.exc_info())))
+            raise ValidationError('Module (%s) could not be imported: %s' % 
+                                  (module_name, str(sys.exc_info())))
         
         try:
             handler_class = getattr(module, class_name)
         except:
-            raise ValidationError('Class (%s) was not found in module (%s).' % (class_name, module_name))
+            raise ValidationError('Class (%s) was not found in module (%s).' % 
+                                  (class_name, module_name))
         
         if (  self.handler_function not in dir(handler_class) or
-           not str(getattr(handler_class, self.handler_function)).startswith("<function")  ):
-            raise ValidationError('Class (%s) does not appear to have a \'handle_message\' @staticmethod function declared!' % class_name)
+              not str(getattr(handler_class, self.handler_function)).startswith("<function")  ):
+            raise ValidationError('Class (%s) does not appear to have a \'handle_message\'\
+                                  @staticmethod function declared!' % class_name)
         
         self.module_name = module_name
         self.class_name = class_name
@@ -167,7 +174,8 @@ class _Handler(models.Model):
         try:
             self.description = handler_class.__doc__.strip()
         except:
-            raise ValidationError('Class Description could not be found. Attempted .__doc__.strip()' % (method_name, module_name))
+            raise ValidationError('Class Description could not be found. Attempted .__doc__.strip()' %
+                                  (method_name, module_name))
         
         try:
             self.version = handler_class.version
@@ -207,15 +215,28 @@ class CollectionManagementService(_TaxiiService):
     """
     Model for Collection Management Service
     """
-    collection_information_handler = models.ForeignKey(MessageHandler, related_name='collection_information', limit_choices_to={'supported_messages__contains': 'CollectionInformationRequest'}, blank=True, null=True)
-    subscription_management_handler = models.ForeignKey(MessageHandler, related_name='subscription_management', limit_choices_to={'supported_messages__contains': 'ManageCollectionSubscriptionRequest'}, blank=True, null=True)
-    advertised_collections = models.ManyToManyField(DataCollection, blank=True, null=True)#TODO: This field is also used to determine which Collections this service processes subscriptions for. Is that right?
+    collection_information_handler = models.ForeignKey(MessageHandler, 
+                                                       related_name='collection_information', 
+                                                       limit_choices_to={'supported_messages__contains': 
+                                                                         'CollectionInformationRequest'}, 
+                                                       blank=True, 
+                                                       null=True)
+    subscription_management_handler = models.ForeignKey(MessageHandler, 
+                                                        related_name='subscription_management', 
+                                                        limit_choices_to={'supported_messages__contains': 
+                                                                          'ManageCollectionSubscriptionRequest'}, 
+                                                        blank=True, 
+                                                        null=True)
+    #TODO: This field is also used to determine which Collections this 
+    #      service processes subscriptions for. Is that right?
+    advertised_collections = models.ManyToManyField(DataCollection, blank=True, null=True)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     
     def clean(self):
         if (  not self.collection_information_handler and
              not self.subscription_management_handler  ):
-            raise ValidationError('At least one of Collection Information Handler or Subscription Management Handler must have a value selected.')
+            raise ValidationError('At least one of Collection Information Handler or \
+                                  Subscription Management Handler must have a value selected.')
     
     class Meta:
         verbose_name = "Collection Management Service"
@@ -365,7 +386,9 @@ class DiscoveryService(_TaxiiService):
     """
     Model for a TAXII Discovery Service
     """
-    discovery_handler = models.ForeignKey(MessageHandler, limit_choices_to={'supported_messages__contains': 'DiscoveryRequest'})
+    discovery_handler = models.ForeignKey(MessageHandler, 
+                                          limit_choices_to={'supported_messages__contains': 
+                                                            'DiscoveryRequest'})
     advertised_discovery_services = models.ManyToManyField('self', blank=True)
     advertised_inbox_services = models.ManyToManyField(InboxService, blank=True)
     advertised_poll_services = models.ManyToManyField(PollService, blank=True)
@@ -411,7 +434,9 @@ class InboxService(_TaxiiService):
     """
     Model for a TAXII Inbox Service
     """
-    inbox_message_handler = models.ForeignKey(MessageHandler, limit_choices_to={'supported_messages__contains': 'InboxMessage'})
+    inbox_message_handler = models.ForeignKey(MessageHandler, 
+                                              limit_choices_to={'supported_messages__contains': 
+                                                                'InboxMessage'})
     destination_collection_status = models.CharField(max_length=MAX_NAME_LENGTH, choices=ROP_CHOICES)
     destination_collections = models.ManyToManyField(DataCollection, blank=True)
     accept_all_content = models.BooleanField(default=False)
@@ -443,7 +468,8 @@ class MessageHandler(_Handler):
         try:
             self.supported_messages = handler_class.get_supported_request_messages()
         except:
-            raise ValidationError('There was a problem getting the list of supported messages: %s' % str(sys.exc_info()))
+            raise ValidationError('There was a problem getting the list of supported messages: %s' % 
+                                  str(sys.exc_info()))
     
     class Meta:
         verbose_name = "Message Handler"
@@ -452,8 +478,16 @@ class PollService(_TaxiiService):
     """
     Model for a Poll Service
     """
-    poll_request_handler = models.ForeignKey(MessageHandler, related_name='poll_request', limit_choices_to={'supported_messages__contains': 'PollRequest'})
-    poll_fulfillment_handler = models.ForeignKey(MessageHandler, related_name='poll_fulfillment', limit_choices_to={'supported_messages__contains': 'PollFulfillmentRequest'}, blank=True, null=True)
+    poll_request_handler = models.ForeignKey(MessageHandler, 
+                                             related_name='poll_request', 
+                                             limit_choices_to={'supported_messages__contains': 
+                                                               'PollRequest'})
+    poll_fulfillment_handler = models.ForeignKey(MessageHandler, 
+                                                 related_name='poll_fulfillment', 
+                                                 limit_choices_to={'supported_messages__contains': 
+                                                                   'PollFulfillmentRequest'}, 
+                                                 blank=True, 
+                                                 null=True)
     data_collections = models.ManyToManyField(DataCollection)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     requires_subscription = models.BooleanField(default=False)
@@ -489,12 +523,14 @@ class QueryHandler(_Handler):
         try:
             self.targeting_expression_id = handler_class.get_supported_targeting_expression()
         except:
-            raise ValidationError('There was a problem getting the supported targeting expression: %s' % str(sys.exc_info()))
+            raise ValidationError('There was a problem getting the supported targeting expression: %s' % 
+                                  str(sys.exc_info()))
         
         try:
             self.capability_modules = handler_class.get_supported_capability_modules()
         except:
-            raise ValidationError('There was a problem getting the list of supported capability modules: %s' % str(sys.exc_info()))
+            raise ValidationError('There was a problem getting the list of supported capability modules: %s' % 
+                                  str(sys.exc_info()))
 
 class ResultSet(models.Model):
     """
@@ -511,7 +547,8 @@ class ResultSet(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'ResultSet ID: %s; Collection: %s; Parts: %s.' % (self.id, self.data_collection, self.resultsetpart_set.count())
+        return u'ResultSet ID: %s; Collection: %s; Parts: %s.' % 
+               (self.id, self.data_collection, self.resultsetpart_set.count())
     
     class Meta:
         verbose_name = "Result Set"
@@ -531,7 +568,8 @@ class ResultSetPart(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % (self.result_set.id, self.result_set.data_collection, self.part_number)
+        return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % 
+               (self.result_set.id, self.result_set.data_collection, self.part_number)
     
     class Meta:
         verbose_name = "Result Set Part"
