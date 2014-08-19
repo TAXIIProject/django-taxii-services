@@ -138,7 +138,9 @@ def supported_query_to_query_info(supported_query):
             preferred_scope = preferred_scope,
             allowed_scope = allowed_scope)
     
-    map = dict((ord(char), None) for char in " []\'")
+    #TODO: I don't think commas are permitted, but they'd break this processing
+    # Probably fix that, maybe through DB field validation
+    map = dict((ord(char), None) for char in " []\'")# This is stored in the DB as a python list, so get rid of all the "extras"
     cm_list = supported_query.query_handler.capability_modules.translate(map).split(',')
 
     dqi = tdq.DefaultQueryInfo(

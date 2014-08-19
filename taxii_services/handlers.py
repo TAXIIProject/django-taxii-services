@@ -3,20 +3,22 @@
 
 import models
 from django.http import Http404
-#import libtaxii as t
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
 import datetime
-#import taxiifiers
 from dateutil.tz import tzutc
 from importlib import import_module
+from exceptions import StatusMessageException
+from libtaxii.constants import *
 
 def get_service_from_path(path):
     """
     Given a path, return a TAXII Service model object.
+    If no service is found, raise Http404.
     """
     # Note that because these objects all inherit from models._TaxiService,
-    # which has a path field, paths are guaranteed to be unique.
+    # which defines the path field, paths are guaranteed to be unique.
+    # That said, this can probably be done more efficiently
     try:
         return models.InboxService.objects.get(path = path, enabled=True)
     except:
@@ -59,44 +61,57 @@ def register_message_handler(message_handler, name='Default Name'):
     mh.clean()
     mh.save()
 
+def register_query_handler(query_handler, name='Default Name'):
+    """
+    Given a QueryHandler, attempts to create a QueryHandler
+    in the database.
+    
+    This function overwrites anything already in the database.
+    """
+    
+    module = query_handler.__module__
+    class_ = query_handler.__name__
+    handler_string = module + "." + class_
+    qh, created = models.QueryHandler.objects.get_or_create(handler = handler_string, name=name)
+    qh.clean()
+    qh.save()
+
 def get_message_handler(service, taxii_message):
     """
     Given a service and a TAXII Message, return the 
-    Service Handler function.
+    message handler class.
     """
     
-    if isinstance(service, models.InboxService):
-        if isinstance(taxii_message, tm11.InboxMessage): #TODO: add "or isinstance tm10.XYZ"
-            handler_string = service.inbox_message_handler.handler
-        else:
-            raise Exception("message type not supported")#TODO: Better error
-    elif isinstance(service, models.PollService):
-        if isinstance(taxii_message, tm11.PollRequest):
-            handler_string = service.poll_request_handler.handler
-        elif isinstance(taxii_message, tm11.PollFulfillmentRequest):
-            handler_string = service.poll_fulfillment_handler.handler
-        else:
-            raise Exception("message type not supported")#TODO: Better error
-    elif isinstance(service, models.DiscoveryService):
-        if isinstance(taxii_message, tm11.DiscoveryRequest):
-            handler_string = service.discovery_handler.handler
-        else:
-            raise Exception("message type not supported")#TODO: Better error
-    elif isinstance(service, models.CollectionManagementService):
-        if isinstance(taxii_message, tm11.CollectionInformationRequest):
-            handler_string = service.collection_information_handler.handler
-        elif isinstance(taxii_message, tm11.SubscriptionManagementRequest):
-            handler_string = service.subscription_management_handler.handler
-        else:
-            raise Exception("message type not supported")#TODO: Better error
-    else:
-        raise Exception("This shouldn't happen!")
+    #Convenience aliases
+    st = service.service_type
+    mt = taxii_message.message_type
     
-    module_name, method_name = handler_string.rsplit('.', 1)
+    handler = None
+    
+    if st == SVC_INBOX and mt == MSG_INBOX_MESSAGE:
+        handler = service.inbox_message_handler
+    elif st == SVC_POLL and mt == MSG_POLL_REQUEST:
+        handler = service.poll_request_handler
+    elif st == SVC_POLL and mt == MSG_POLL_FULFILLMENT:
+        handler = service.poll_fulfillment_handler
+    elif st == SVC_DISCOVERY and mt == MSG_DISCOVERY_REQUEST:
+        handler = service.discovery_handler
+    elif st == SVC_COLLECTION_MANAGEMENT and mt in (MSG_COLLECTION_INFORMATION_REQUEST, MSG_FEED_INFORMATION_REQUEST):
+        handler = service.collection_information_handler
+    elif st == SVC_COLLECTION_MANAGEMENT and mt in (MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST, MSG_MANAGE_FEED_SUBSCRIPTION_REQUEST):
+        handler = service.subscription_management_handler
+    
+    if not handler:
+        raise StatusMessageException(taxii_message.message_id, 
+                                     ST_FAILURE, 
+                                     "Message Type: %s is not supported by %s" % \
+                                     (tm, st))
+    
+    module_name, class_name = handler.handler.rsplit('.', 1)
     module = import_module(module_name)
-    handler = getattr(module, method_name)
+    handler_class = getattr(module, class_name)
     
-    return handler
+    return handler_class
 
 def add_content_block_to_collection(content_block, collection):
     #If the content block has a binding id only
@@ -130,11 +145,6 @@ def add_content_block_to_collection(content_block, collection):
         return True, None
     
     return False, 'No match could be found'
-
-
-def stix_111_query_handler(content_block, query):
-    print "Handling a STIX 1.1.1 Query!!!!"
-    return False
 
 
 def is_content_supported(obj, content_block): #binding_id, subtype_id = None):

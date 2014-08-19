@@ -4,18 +4,41 @@
 import logging
 from django.http import HttpResponseServerError
 
+import libtaxii as t
 import libtaxii.messages_11 as tm11
+import libtaxii.messages_10 as tm10
+
 from taxii_services.utils import response_utils
+from exceptions import StatusMessageException
 import settings
 import traceback
 
-class TaxiiStatusMessageMiddleware(object):
+class StatusMessageExceptionMiddleware(object):
+    """
+    If a StatusMessageException is passed in, this class will
+    create a StatusMessage response. Otherwise, this class will
+    pass on the Exception to the next Middleware object
+    """
     def process_exception(self, request, exception):
-        if settings.DEBUG is False:
-            message = 'An internal server error occurred'
-        else:
-            message = str(exception)
-            print traceback.format_exc()
+        if not isinstance(exception, StatusMessageException):
+            return None # This class only handles StatusMessageExceptions
         
-        m = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type=tm11.ST_FAILURE, message=message)
-        return response_utils.create_taxii_response(m.to_xml(), response_utils.TAXII_11_HTTP_Headers)
+        a = request.META.get('HTTP_ACCEPT', None)
+        if a not in ('application/xml', None): # This application doesn't know how to handle this
+            return HttpResponse(status_code=406) # Unacceptable
+        
+        xta = request.META.get('HTTP_X_TAXII_ACCEPT', None)
+        if xta is None: # Can respond with whatever we want, try to use the X-TAXII-Content-Type header to pick
+            xtct = request.META.get('HTTP_X_TAXII_CONTENT_TYPE', None)
+            if xtct in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
+                xta = xtct
+            else:#Well, we tried - use TAXII XML 1.1 as a default
+                xta = t.VID_TAXII_XML_11
+        
+        if xta in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
+            sm = exception.get_status_message(xta)
+        else:
+            raise Exception("Unknown X-TAXII-Accept value: %s" % xta)
+        
+        response_headers = response_utils.get_headers(xta, request.is_secure())
+        return response_utils.create_taxii_response(sm.to_xml(pretty_print=True), response_headers)

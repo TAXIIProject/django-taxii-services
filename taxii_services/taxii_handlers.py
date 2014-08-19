@@ -8,95 +8,18 @@ import models
 import libtaxii as t
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
+from libtaxii.constants import *
+from base_taxii_handlers import MessageHandler
 
 from exceptions import StatusMessageException
 from itertools import chain
 
-class DefaultQueryHandler(object):
-    """
-    Blah blah blah.
-    Extend this for query support
-    """
-    
-    supported_targeting_expression = None
-    supported_capability_modules = None
-    supported_scope_message = None
-    
-    @classmethod
-    def get_supported_capability_modules(cls):
-        """
-        Returns a list of strings indicating the Capability Modules this 
-        class supports. Pulls from the 
-        supported_capability_modules class variable set by the 
-        child class
-        """
-        if not cls.supported_capability_modules:
-            raise ValueError('The variable \'supported_capability_modules\' has not been defined by the subclass!')
-        return cls.supported_capability_modules
-    
-    @classmethod
-    def get_supported_targeting_expression(cls):
-        """
-        Returns a string indicating the targeting expression this 
-        class supports. Pulls from the 
-        supported_targeting_expression class variable set by the 
-        child class
-        """
-        if not cls.supported_targeting_expression:
-            raise ValueError('The variable \'supported_targeting_expression\' has not been defined by the subclass!')
-        return cls.supported_targeting_expression
-    
-    @classmethod
-    def get_supported_scope_message(cls):
-        pass#TODO: is this worthwhile?
-    
-    @staticmethod
-    def is_scope_supported(scope):
-        """
-        Given a DefaultQueryScope object, return True
-        if that scope is supported or False if it is not.
-        """
-        raise NotImplementedError()
-    
-    @staticmethod
-    def execute_query(content_block_list, query):
-        """
-        Given a query and a list of tm11.ContentBlock objects,
-        return a list of tm11.ContentBlock objects that
-        match the query
-        """
-        raise NotImplementedError()
-
-class MessageHandler(object):
-    """
-    Blah blah blah
-    Extend this for message exchange support
-    """
-    
-    # This variable identifies a list of supported request messages.
-    # Each value should be something like libtaxii.messages_11.StatusMessage
-    supported_request_messages = None
-    
-    @classmethod
-    def get_supported_request_messages(cls):
-        if not cls.supported_request_messages:
-            raise ValueError('The variable \'supported_request_messages\' has not been defined by the subclass!')
-        return cls.supported_request_messages
-    
-    @staticmethod
-    def handle_message(service, taxii_message, django_request):
-        """
-        Takes a service model, TAXII Message, and django request
-        
-        MUST return a tm11 TAXII Message
-        """
-        raise NotImplementedError()
-
-class DiscoveryRequestHandler(MessageHandler):
+class DiscoveryRequest11Handler(MessageHandler):
     """
     Built-in Discovery Request Handler.
     """
     supported_request_messages = [tm11.DiscoveryRequest]
+    version = "1"
     
     @staticmethod
     def handle_message(discovery_service, discovery_request, django_request):        
@@ -117,12 +40,13 @@ class DiscoveryRequestHandler(MessageHandler):
         # Return the Discovery Response
         return discovery_response
 
-class InboxMessageHandler(MessageHandler):
+class InboxMessage11Handler(MessageHandler):
     """
     Built-in Inbox Message Handler.
     """
     
     supported_request_messages = [tm11.InboxMessage]
+    version = "1"
     
     @staticmethod
     def check_dcns(inbox_service, inbox_message):
@@ -175,8 +99,8 @@ class InboxMessageHandler(MessageHandler):
     @staticmethod
     def handle_message(inbox_service, inbox_message, django_request):
         
-        InboxMessageHandler.check_dcns(inbox_service, inbox_message)
-        collections = InboxMessageHandler.get_destination_data_collections(inbox_service, inbox_message)
+        InboxMessage11Handler.check_dcns(inbox_service, inbox_message)
+        collections = InboxMessage11Handler.get_destination_data_collections(inbox_service, inbox_message)
         
         # Store certain information about this Inbox Message in the database for bookkeeping
         inbox_message_db = handlers.create_inbox_message_db(inbox_message, django_request, received_via = inbox_service)
@@ -241,11 +165,12 @@ class InboxMessageHandler(MessageHandler):
         status_message = tm11.StatusMessage(message_id = tm11.generate_message_id(), in_response_to=inbox_message.message_id, status_type = tm11.ST_SUCCESS)
         return status_message
 
-class PollFulfillmentRequestHandler(MessageHandler):
+class PollFulfillmentRequest11Handler(MessageHandler):
     """
     Built-in Poll Fulfillment Request Handler.
     """
     supported_request_messages = [tm11.PollFulfillmentRequest]
+    version = "1"
     
     @staticmethod
     def handle_message(poll_service, poll_fulfillment_request, django_request):
@@ -261,12 +186,13 @@ class PollFulfillmentRequestHandler(MessageHandler):
         except:
             raise #TODO: After this has been tested, return an appropriate Status Message
 
-class PollRequestHandler(MessageHandler):
+class PollRequest11Handler(MessageHandler):
     """
     Built-in Poll Request Handler
     """
     
     supported_request_messages = [tm11.PollRequest]
+    version = "1"
     
     @staticmethod
     def handle_message(poll_service, poll_request, django_request):
@@ -440,11 +366,12 @@ class PollRequestHandler(MessageHandler):
         return response
 
 
-class CollectionInformationRequestHandler(MessageHandler):
+class CollectionInformationRequest11Handler(MessageHandler):
     """
     Built-in Collection Information Request Handler.
     """
     supported_request_messages = [tm11.CollectionInformationRequest]
+    version = "1"
     
     @staticmethod
     def handle_message(collection_management_service, collection_information_request, django_request):
@@ -454,6 +381,7 @@ class CollectionInformationRequestHandler(MessageHandler):
         # For each collection that is advertised and enabled, create a Collection Information
         # object and add it to the Collection Information Response
         for collection in collection_management_service.advertised_collections.filter(enabled=True):
+            #TODO: The below code belongs in a taxiifier
             ci = tm11.CollectionInformation(
                 collection_name = collection.name,
                 collection_description = collection.description,
@@ -471,12 +399,13 @@ class CollectionInformationRequestHandler(MessageHandler):
         
         return cir
 
-class ManageCollectionSubscriptionRequestHandler(MessageHandler):
+class ManageCollectionSubscriptionRequest11Handler(MessageHandler):
     """
     Built-in Management Collection Subscription Request Handler.
     """
     
     supported_request_messages = [tm11.ManageCollectionSubscriptionRequest]
+    version = "1"
     
     @staticmethod
     def handle_message(collection_management_service, manage_collection_subscription_request, django_request):
@@ -615,20 +544,3 @@ class ManageCollectionSubscriptionRequestHandler(MessageHandler):
             
         
         raise Exception("This code shouldn't be reached!")
-
-class Stix111QueryHandler(DefaultQueryHandler):
-    """
-    Handles TAXII Default Queries for STIX 1.1.1
-    """
-    
-    supported_targeting_expression = t.CB_STIX_XML_111
-    supported_capability_modules = [tdq.CM_CORE, tdq.CM_REGEX, tdq.CM_TIMESTAMP]
-    
-    @staticmethod
-    def is_scope_supported(scope):
-        return False, "Nothing is supported at the moment"
-    
-    @staticmethod
-    def execute_query(content_block_list, query):
-        #TODO: Actually implement this!
-        return content_block_list

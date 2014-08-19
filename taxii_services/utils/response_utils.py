@@ -58,3 +58,19 @@ TAXII_10_HTTP_Headers = {'Content-Type': 'application/xml',
                          'X-TAXII-Content-Type': t.VID_TAXII_XML_10,
                          'X-TAXII-Protocol': t.VID_TAXII_HTTP_10,
                          'X-TAXII-Services': t.VID_TAXII_SERVICES_10}
+
+def get_headers(taxii_xml_version_id, is_secure):
+    """
+    Convenience method for selecting headers
+    """
+    if taxii_xml_version_id == t.VID_TAXII_XML_11 and is_secure:
+        return TAXII_11_HTTPS_Headers
+    elif taxii_xml_version_id == t.VID_TAXII_XML_11 and not is_secure:
+        return TAXII_11_HTTP_Headers
+    elif taxii_xml_version_id == t.VID_TAXII_XML_10 and is_secure:
+        return TAXII_10_HTTPS_Headers
+    elif taxii_xml_version_id == t.VID_TAXII_XML_10 and not is_secure:
+        return TAXII_10_HTTP_Headers
+    else:
+        raise ValueError("Unknown combination for taxii_xml_version_id and is_secure!")
+    

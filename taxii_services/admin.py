@@ -85,13 +85,13 @@ class SupportedQueryAdmin(admin.ModelAdmin):
     pass
 
 class QueryHandlerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'module_name', 'class_name', 'targeting_expression_id', 'capability_modules', 'class_hash']
+    list_display = ['name', 'description', 'module_name', 'class_name', 'targeting_expression_id', 'capability_modules', 'version']
 
-class DefaultQueryScopeAdmin(admin.ModelAdmin):
+class QueryScopeAdmin(admin.ModelAdmin):
     pass
 
 class MessageHandlerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'module_name', 'class_name', 'supported_messages', 'class_hash']
+    list_display = ['name', 'description', 'module_name', 'class_name', 'supported_messages', 'version']
 
 #class CapabilityModuleAdmin(admin.ModelAdmin):
 #    pass
@@ -121,4 +121,4 @@ def register_admins():
     #admin.site.register(models.TargetingExpression, TargetingExpressionAdmin)
     admin.site.register(models.SupportedQuery, SupportedQueryAdmin)
     admin.site.register(models.QueryHandler, QueryHandlerAdmin)
-    admin.site.register(models.DefaultQueryScope, DefaultQueryScopeAdmin)
+    admin.site.register(models.QueryScope, QueryScopeAdmin)

@@ -3,7 +3,6 @@
 
 from django.db import models
 from django.db.models.signals import post_save
-from validators import validate_importable
 from importlib import import_module
 import sys
 
@@ -11,6 +10,9 @@ from django.core.exceptions import ValidationError
 
 import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
+import libtaxii.taxii_default_query as tdq
+from libtaxii import validation
+from libtaxii.constants import *
 
 MAX_NAME_LENGTH = 256
 
@@ -20,71 +22,71 @@ MAX_NAME_LENGTH = 256
 # message exchange
 
 #: TAXII 1.1 Inbox Message Handler
-INBOX_MESSAGE_11_HANDLER = (tm11.MSG_INBOX_MESSAGE, 
+INBOX_MESSAGE_11_HANDLER = (MSG_INBOX_MESSAGE, 
                          'Inbox Service - Inbox Message Handler (TAXII 1.1)')
 #: TAXII 1.0 Inbox Message Handler
-INBOX_10_MESSAGE_HANDLER = (tm10.MSG_INBOX_MESSAGE, 
+INBOX_MESSAGE_10_HANDLER = (MSG_INBOX_MESSAGE, 
                             'Inbox Service - Inbox Message Handler (TAXII 1.0)')
 #: TAXII 1.1 Poll Request Handler
-POLL_REQUEST_11_HANDLER = (tm11.MSG_POLL_REQUEST, 
+POLL_REQUEST_11_HANDLER = (MSG_POLL_REQUEST, 
                         'Poll Service - Poll Request Handler (TAXII 1.1)')
 #: TAXII 1.0 Poll Request Handler
-POLL_REQUEST_10_HANDLER = (tm10.MSG_POLL_REQUEST, 
+POLL_REQUEST_10_HANDLER = (MSG_POLL_REQUEST, 
                            'Poll Service - Poll Request Handler (TAXII 1.0)')
 #: TAXII 1.1 Poll Fulfillment Request Handler
-POLL_FULFILLMENT_REQUEST_HANDLER = (tm11.MSG_POLL_FULFILLMENT_REQUEST , 
+POLL_FULFILLMENT_REQUEST_11_HANDLER = (MSG_POLL_FULFILLMENT_REQUEST , 
                                     'Poll Service - Poll Fulfillment Request Handler (TAXII 1.1)')
 #PollFulfillment is not in TAXII 1.0
 #: TAXII 1.1 Discovery Request Handler
-DISCOVERY_REQUEST_11_HANDLER = (tm11.MSG_DISCOVERY_REQUEST, 
+DISCOVERY_REQUEST_11_HANDLER = (MSG_DISCOVERY_REQUEST, 
                              'Discovery Service - Discovery Request Handler (TAXII 1.1)')
 #: TAXII 1.0 Discovery Request Handler
-DISCOVERY_REQUEST_10_HANDLER = (tm10.MSG_DISCOVERY_REQUEST, 
+DISCOVERY_REQUEST_10_HANDLER = (MSG_DISCOVERY_REQUEST, 
                                 'Discovery Service - Discovery Request Handler (TAXII 1.0)')
 #: TAXII 1.1 Collection Information Request Handler
-COLLECTION_INFORMATION_REQUEST_11_HANDLER = (tm11.MSG_COLLECTION_INFORMATION_REQUEST, 
+COLLECTION_INFORMATION_REQUEST_11_HANDLER = (MSG_COLLECTION_INFORMATION_REQUEST, 
                                           'Collection Management Service - \
                                           Collection Information Handler (TAXII 1.1)')
 #: TAXII 1.0 Collection Information Request Handler
-COLLECTION_INFORMATION_REQUEST_10_HANDLER = (tm10.MSG_COLLECTION_INFORMATION_REQUEST, 
-                                             'Collection Management Service - \
-                                             Collection Information Handler (TAXII 1.0)')
+FEED_INFORMATION_REQUEST_10_HANDLER = (MSG_FEED_INFORMATION_REQUEST, 
+                                             'Feed Management Service - \
+                                             Feed Information Handler (TAXII 1.0)')
 #: TAXII 1.1 Subscription Management Request Handler
-SUBSCRIPTION_MANAGEMENT_REQUEST_11_HANDLER = (tm11.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 
+SUBSCRIPTION_MANAGEMENT_REQUEST_11_HANDLER = (MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 
                                            'Collection Management Service - \
                                            Subscription Management Handler (TAXII 1.1)')
 #: TAXII 1.0 Subscription Management Request Handler
-SUBSCRIPTION_MANAGEMENT_REQUEST_10_HANDLER = (tm10.MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST , 
-                                              'Collection Management Service - \
+SUBSCRIPTION_MANAGEMENT_REQUEST_10_HANDLER = (MSG_MANAGE_FEED_SUBSCRIPTION_REQUEST , 
+                                              'Feed Management Service - \
                                               Subscription Management Handler (TAXII 1.0)')
 #: Tuple of all message handler choices
 MESSAGE_HANDLER_CHOICES = (INBOX_MESSAGE_11_HANDLER, POLL_REQUEST_11_HANDLER, 
                            POLL_FULFILLMENT_REQUEST_11_HANDLER, DISCOVERY_REQUEST_11_HANDLER, 
                            COLLECTION_INFORMATION_REQUEST_11_HANDLER, SUBSCRIPTION_MANAGEMENT_REQUEST_11_HANDLER, 
                            INBOX_MESSAGE_10_HANDLER, POLL_REQUEST_10_HANDLER, 
-                           DISCOVERY_REQUEST_10_HANDLER, COLLECTION_INFORMATION_REQUEST_10_HANDLER, 
+                           DISCOVERY_REQUEST_10_HANDLER, FEED_INFORMATION_REQUEST_10_HANDLER, 
                            SUBSCRIPTION_MANAGEMENT_REQUEST_10_HANDLER)
 
 #: Active Subscription Status
-ACTIVE_STATUS = (tm11.SS_ACTIVE, 'Active')
+ACTIVE_STATUS = (SS_ACTIVE, 'Active')
 #: Paused Subscription Status
-PAUSED_STATUS = (tm11.SS_PAUSED, 'Paused')
+PAUSED_STATUS = (SS_PAUSED, 'Paused')
 #: Unsubscribed Subscription Status
-UNSUBSCRIBED_STATUS = (tm11.SS_UNSUBSCRIBED, 'Unsubscribed')
+UNSUBSCRIBED_STATUS = (SS_UNSUBSCRIBED, 'Unsubscribed')
 #: Tuple of all subscription statuses
 SUBSCRIPTION_STATUS_CHOICES = (ACTIVE_STATUS, PAUSED_STATUS, UNSUBSCRIBED_STATUS)
 
 #: Response Type Full
-FULL_RESPONSE = (tm11.RT_FULL, 'Full')
+FULL_RESPONSE = (RT_FULL, 'Full')
 #: Response Type Count Only
-COUNT_RESPONSE = (tm11.RT_COUNT_ONLY, 'Count Only')
+COUNT_RESPONSE = (RT_COUNT_ONLY, 'Count Only')
 #: Tuple of all response choices
 RESPONSE_CHOICES = (FULL_RESPONSE, COUNT_RESPONSE)
 
 #: Data Feed
-DATA_FEED = (tm11.CT_DATA_FEED, 'Data Feed')
+DATA_FEED = (CT_DATA_FEED, 'Data Feed')
 #: Data Set
-DATA_SET = (tm11.CT_DATA_SET, 'Data Set')
+DATA_SET = (CT_DATA_SET, 'Data Set')
 #: Tuple of all Data Collection types
 DATA_COLLECTION_CHOICES = (DATA_FEED, DATA_SET)
 
@@ -124,8 +126,8 @@ class _Handler(models.Model):
     A handler is an extension point that allows user-defined code to be used
     in conjunction with django-taxii-services
     """
-    #: Subclasses use handler_function to indicate what function they call for handling
-    handler_function = None
+    #: Subclasses use handler_function to indicate what functions they call for handling
+    handler_functions = []
     
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True, editable=False)
@@ -163,10 +165,14 @@ class _Handler(models.Model):
             raise ValidationError('Class (%s) was not found in module (%s).' % 
                                   (class_name, module_name))
         
-        if (  self.handler_function not in dir(handler_class) or
-              not str(getattr(handler_class, self.handler_function)).startswith("<function")  ):
-            raise ValidationError('Class (%s) does not appear to have a \'handle_message\'\
-                                  @staticmethod function declared!' % class_name)
+        for f in self.handler_functions:
+            try:
+                hf = getattr(handler_class, f)
+            except:
+                raise ValidationError('Class (%s) does not have a %s function defined!' % (module_name, f))
+            
+            if str(hf).startswith("<unbound"):
+                raise ValidationError("Function %s does not appear to be a @staticmethod or @classmethod!" % f)
         
         self.module_name = module_name
         self.class_name = class_name
@@ -174,14 +180,13 @@ class _Handler(models.Model):
         try:
             self.description = handler_class.__doc__.strip()
         except:
-            raise ValidationError('Class Description could not be found. Attempted .__doc__.strip()' %
-                                  (method_name, module_name))
+            raise ValidationError('Class Description could not be found. Attempted %s.__doc__.strip()' % class_name)
         
         try:
             self.version = handler_class.version
         except:
             print 'There was a problem getting the version! Does the class have a static version property?'
-            raise
+            raise ValidationError('Could not read version from class. Does the class have a static version property?')
         
         return handler_class#This is used by subclasses to extract subclass-specific attrs
     
@@ -196,11 +201,12 @@ class _TaxiiService(models.Model):
     Not to be used by users directly. Defines common fields that all 
     TAXII Services use
     """
+    service_type = None
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     path = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
     description = models.TextField(blank=True)
-    supported_message_bindings = models.ManyToManyField(MessageBinding)
-    supported_protocol_bindings = models.ManyToManyField(ProtocolBinding)
+    supported_message_bindings = models.ManyToManyField('MessageBinding')
+    supported_protocol_bindings = models.ManyToManyField('ProtocolBinding')
     enabled = models.BooleanField(default=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -215,13 +221,14 @@ class CollectionManagementService(_TaxiiService):
     """
     Model for Collection Management Service
     """
-    collection_information_handler = models.ForeignKey(MessageHandler, 
+    service_type = SVC_COLLECTION_MANAGEMENT
+    collection_information_handler = models.ForeignKey('MessageHandler', 
                                                        related_name='collection_information', 
                                                        limit_choices_to={'supported_messages__contains': 
                                                                          'CollectionInformationRequest'}, 
                                                        blank=True, 
                                                        null=True)
-    subscription_management_handler = models.ForeignKey(MessageHandler, 
+    subscription_management_handler = models.ForeignKey('MessageHandler', 
                                                         related_name='subscription_management', 
                                                         limit_choices_to={'supported_messages__contains': 
                                                                           'ManageCollectionSubscriptionRequest'}, 
@@ -229,7 +236,7 @@ class CollectionManagementService(_TaxiiService):
                                                         null=True)
     #TODO: This field is also used to determine which Collections this 
     #      service processes subscriptions for. Is that right?
-    advertised_collections = models.ManyToManyField(DataCollection, blank=True, null=True)
+    advertised_collections = models.ManyToManyField('DataCollection', blank=True, null=True)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     
     def clean(self):
@@ -255,7 +262,7 @@ class ContentBindingAndSubtype(models.Model):
     """
     Model that relates ContentBindings to ContentBindingSubtypes.
     """
-    content_binding = models.ForeignKey(ContentBinding)
+    content_binding = models.ForeignKey('ContentBinding')
     subtype = models.ForeignKey('ContentBindingSubtype', blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -281,9 +288,9 @@ class ContentBindingSubtype(models.Model):
     """
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
-    parent = models.ForeignKey(ContentBinding)
+    parent = models.ForeignKey('ContentBinding')
     subtype_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
-    validator = models.ForeignKey(Validator, blank=True, null=True)
+    validator = models.ForeignKey('Validator', blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
@@ -329,8 +336,8 @@ class ContentBlock(models.Model):
     message = models.TextField(blank=True)
     
     timestamp_label = models.DateTimeField(auto_now_add=True)
-    inbox_message = models.ForeignKey(InboxMessage, blank=True, null=True)
-    content_binding_and_subtype = models.ForeignKey(ContentBindingAndSubtype)
+    inbox_message = models.ForeignKey('InboxMessage', blank=True, null=True)
+    content_binding_and_subtype = models.ForeignKey('ContentBindingAndSubtype')
     content = models.TextField()
     padding = models.TextField(blank=True)
     
@@ -353,7 +360,7 @@ class DataCollection(models.Model):
     type = models.CharField(max_length=MAX_NAME_LENGTH, choices=DATA_COLLECTION_CHOICES)
     enabled = models.BooleanField(default=True)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
     content_blocks = models.ManyToManyField('ContentBlock', blank=True, null=True)
     
     date_created = models.DateTimeField(auto_now_add=True)
@@ -366,18 +373,31 @@ class DataCollection(models.Model):
         ordering = ['name']
         verbose_name = "Data Collection"
 
-class DefaultQueryScope(models.Model):
+class QueryScope(models.Model):
     """
     Model for Query Scope
     """
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
-    #TODO: Add a validator on the scope to make sure the syntax is correct
-    #      This has been added to libtaxii, but has not made it into a release yet
+    query_handler = models.ForeignKey('QueryHandler')
     scope = models.CharField(max_length=MAX_NAME_LENGTH)
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def clean(self):
+        super(QueryScope, self).clean()
+        try:
+            validation.do_check(self.scope, 'scope', regex_tuple=tdq.targeting_expression_regex)
+        except:
+            raise ValidationError('Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) separated by a /. No leading slash.')
+        
+        handler_class = self.query_handler.get_handler_class()
+        
+        supported, error = handler_class.is_scope_supported(self.scope)
+        if not supported:
+            raise ValidationError('This query scope is not supported by the handler: %s' % 
+                                  str(error))
     
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.scope)
@@ -386,13 +406,14 @@ class DiscoveryService(_TaxiiService):
     """
     Model for a TAXII Discovery Service
     """
-    discovery_handler = models.ForeignKey(MessageHandler, 
+    service_type = SVC_DISCOVERY
+    discovery_handler = models.ForeignKey('MessageHandler', 
                                           limit_choices_to={'supported_messages__contains': 
                                                             'DiscoveryRequest'})
     advertised_discovery_services = models.ManyToManyField('self', blank=True)
-    advertised_inbox_services = models.ManyToManyField(InboxService, blank=True)
-    advertised_poll_services = models.ManyToManyField(PollService, blank=True)
-    advertised_collection_management_services = models.ManyToManyField(CollectionManagementService, blank=True)
+    advertised_inbox_services = models.ManyToManyField('InboxService', blank=True)
+    advertised_poll_services = models.ManyToManyField('PollService', blank=True)
+    advertised_collection_management_services = models.ManyToManyField('CollectionManagementService', blank=True)
     
     class Meta:
         verbose_name = "Discovery Service"
@@ -418,7 +439,7 @@ class InboxMessage(models.Model):
     exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
     inclusive_end_timestamp_label = models.DateTimeField(blank=True, null=True)
     
-    received_via = models.ForeignKey(InboxService, blank=True, null=True)
+    received_via = models.ForeignKey('InboxService', blank=True, null=True)
     original_message = models.TextField(blank=True, null=True)
     content_block_count = models.IntegerField()
     content_blocks_saved = models.IntegerField()
@@ -434,13 +455,14 @@ class InboxService(_TaxiiService):
     """
     Model for a TAXII Inbox Service
     """
-    inbox_message_handler = models.ForeignKey(MessageHandler, 
+    service_type = SVC_INBOX
+    inbox_message_handler = models.ForeignKey('MessageHandler', 
                                               limit_choices_to={'supported_messages__contains': 
                                                                 'InboxMessage'})
     destination_collection_status = models.CharField(max_length=MAX_NAME_LENGTH, choices=ROP_CHOICES)
-    destination_collections = models.ManyToManyField(DataCollection, blank=True)
+    destination_collections = models.ManyToManyField('DataCollection', blank=True)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
     
     class Meta:
         verbose_name = "Inbox Service"
@@ -460,7 +482,7 @@ class MessageHandler(_Handler):
     """
     Testing out a new concept.
     """
-    handler_function = 'handle_message'
+    handler_functions = ['handle_message']
     supported_messages = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
     
     def clean(self):
@@ -478,17 +500,18 @@ class PollService(_TaxiiService):
     """
     Model for a Poll Service
     """
-    poll_request_handler = models.ForeignKey(MessageHandler, 
+    service_type = SVC_POLL
+    poll_request_handler = models.ForeignKey('MessageHandler', 
                                              related_name='poll_request', 
                                              limit_choices_to={'supported_messages__contains': 
                                                                'PollRequest'})
-    poll_fulfillment_handler = models.ForeignKey(MessageHandler, 
+    poll_fulfillment_handler = models.ForeignKey('MessageHandler', 
                                                  related_name='poll_fulfillment', 
                                                  limit_choices_to={'supported_messages__contains': 
                                                                    'PollFulfillmentRequest'}, 
                                                  blank=True, 
                                                  null=True)
-    data_collections = models.ManyToManyField(DataCollection)
+    data_collections = models.ManyToManyField('DataCollection')
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     requires_subscription = models.BooleanField(default=False)
     
@@ -512,7 +535,7 @@ class QueryHandler(_Handler):
     takes two arguments: A query and a content block and returns 
     True if the Content Block passes the query and False otherwise.
     """
-    handler_function = 'execute_query'
+    handler_functions = ['execute_query']
     
     targeting_expression_id = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
     capability_modules = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
@@ -536,8 +559,8 @@ class ResultSet(models.Model):
     """
     Model for Result Sets
     """
-    data_collection = models.ForeignKey(DataCollection)
-    subscription = models.ForeignKey(Subscription, blank=True, null=True)
+    data_collection = models.ForeignKey('DataCollection')
+    subscription = models.ForeignKey('Subscription', blank=True, null=True)
     total_content_blocks = models.IntegerField()
     #TODO: Figure out how to limit choices to only the ResultSetParts that belong to this ResultSet
     last_part_returned = models.ForeignKey('ResultSetPart', blank=True, null=True)
@@ -547,7 +570,7 @@ class ResultSet(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'ResultSet ID: %s; Collection: %s; Parts: %s.' % 
+        return u'ResultSet ID: %s; Collection: %s; Parts: %s.' % \
                (self.id, self.data_collection, self.resultsetpart_set.count())
     
     class Meta:
@@ -557,9 +580,9 @@ class ResultSetPart(models.Model):
     """
     Model for Result Set Parts
     """
-    result_set = models.ForeignKey(ResultSet)
+    result_set = models.ForeignKey('ResultSet')
     part_number = models.IntegerField()
-    content_blocks = models.ManyToManyField(ContentBlock)
+    content_blocks = models.ManyToManyField('ContentBlock')
     content_block_count = models.IntegerField()
     more = models.BooleanField()
     exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
@@ -568,7 +591,7 @@ class ResultSetPart(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
     
     def __unicode__(self):
-        return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % 
+        return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % \
                (self.result_set.id, self.result_set.data_collection, self.part_number)
     
     class Meta:
@@ -580,10 +603,10 @@ class Subscription(models.Model):
     Model for Subscriptions
     """
     subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
-    data_collection = models.ForeignKey(DataCollection)
+    data_collection = models.ForeignKey('DataCollection')
     response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices = RESPONSE_CHOICES, default=tm11.RT_FULL)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField(ContentBindingAndSubtype, blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
     query = models.TextField(blank=True)
     #push_parameters = models.ForeignKey(PushParameters)#TODO: Create a push parameters object
     delivery = models.CharField(max_length=MAX_NAME_LENGTH, choices = DELIVERY_CHOICES, default=SUBS_POLL)
@@ -604,26 +627,14 @@ class SupportedQuery(models.Model):
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
     
-    query_handler = models.ForeignKey(QueryHandler)
-    preferred_scope = models.ManyToManyField(DefaultQueryScope, blank=True, null=True, related_name='preferred_scope')
-    allowed_scope = models.ManyToManyField(DefaultQueryScope, blank=True, null=True, related_name='allowed_scope')
+    query_handler = models.ForeignKey('QueryHandler')
+    preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
+    allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
-    #TODO: Apparantly M2M fields can't be clean()'d in Django
-    # Need to find another way to do this...
-    # def clean(self):
-        # handler_class = self.query_handler.get_handler_class()
-        # for ps in self.preferred_scope:
-            # supported, message = handler_class.is_scope_supported(ps)
-            # if not supported:
-                # raise ValidationError("Preferred Scope not supported: %s" % message)
-        
-        # for as_ in self.allowed_scope:
-            # supported, message = handler_class.is_scope_supported(as_)
-            # if not supported:
-                # raise ValidationError("Allowed Scope not supported: %s" % message)
+    #TODO: Need to limit preferred/allowed scope choices by the selected QueryHandler
     
     def __unicode__(self):
         return u'%s' % self.name
@@ -642,5 +653,5 @@ class Validator(_Handler):
     At some point, if a validator gets invented, this 
     model will leverage that validator concept.
     """
-    handler_function = 'validate'
+    handler_functions = ['validate']
     
