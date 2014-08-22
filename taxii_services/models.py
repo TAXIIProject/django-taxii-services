@@ -3,15 +3,17 @@
 
 from django.db import models
 from django.db.models.signals import post_save
+from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 import sys
-
+from itertools import chain
 from django.core.exceptions import ValidationError
 
 import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
 import libtaxii.taxii_default_query as tdq
 from libtaxii import validation
+from libtaxii.common import generate_message_id
 from libtaxii.constants import *
 
 MAX_NAME_LENGTH = 256
@@ -211,6 +213,44 @@ class _TaxiiService(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
+    def to_service_instances_10(self):
+        """
+        Returns a list of 1 or 2 (depending on the supported protocol bindings)
+        tm10.ServiceInstance objects.
+        """
+        service_instances = []
+        for pb in self.supported_protocol_bindings.all():
+            si = tm10.ServiceInstance(
+                         service_type = self.service_type,
+                         services_version = VID_TAXII_SERVICES_11,
+                         protocol_binding = pb.binding_id,
+                         service_address = self.path,#TODO: Get the server's real path and prepend it here
+                         message_bindings = [mb.binding_id for mb in self.supported_message_bindings.all()],
+                         available = self.enabled,
+                         message = self.description
+                         )
+            service_instances.append(si)
+        return service_instances
+    
+    def to_service_instances_11(self):
+        """
+        Returns a list of 1 or 2 (depending on the supported protocol bindings)
+        tm11.ServiceInstance objects.
+        """
+        service_instances = []
+        for pb in self.supported_protocol_bindings.all():
+            si = tm11.ServiceInstance(
+                         service_type = self.service_type,
+                         services_version = VID_TAXII_SERVICES_11,
+                         available = self.enabled,
+                         protocol_binding = pb.binding_id,
+                         service_address = self.path,#TODO: Get the server's real path and prepend it here
+                         message_bindings = [mb.binding_id for mb in self.supported_message_bindings.all()],
+                         message = self.description
+                         )
+            service_instances.append(si)
+        return service_instances
+    
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.path)
     
@@ -244,6 +284,29 @@ class CollectionManagementService(_TaxiiService):
              not self.subscription_management_handler  ):
             raise ValidationError('At least one of Collection Information Handler or \
                                   Subscription Management Handler must have a value selected.')
+    
+    def to_service_instances_11(self):
+        service_instances = super(CollectionManagementService, self).to_service_instances_11()
+        for si in service_instances:
+            for sq in self.supported_queries.all():
+                si.supported_query.append(sq.to_query_info_11())
+        return service_instances
+    
+    def to_collection_information_response_11(self, in_response_to):
+        """
+        Creates a tm11.CollectionInformationResponse 
+        based on this model
+        """
+        
+        # Create a stub CollectionInformationResponse
+        cir = tm11.CollectionInformationResponse(message_id = generate_message_id(), in_response_to=in_response_to)
+        
+        # For each collection that is advertised and enabled, create a Collection Information
+        # object and add it to the Collection Information Response
+        for collection in collection_management_service.advertised_collections.filter(enabled=True):
+            cir.collection_informations.append(collection.to_collection_information_11())
+        
+        return cir
     
     class Meta:
         verbose_name = "Collection Management Service"
@@ -344,6 +407,71 @@ class ContentBlock(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
+    def to_content_block_10(self):
+        """
+        Returns a tm10.ContentBlock
+        based on this model
+        """
+        
+        content_binding = self.content_binding_and_subtype.content_binding.binding_id
+        cb = tm10.ContentBlock(content_binding = content_binding, content = self.content, padding = self.padding)
+        if self.timestamp_label:
+            cb.timestamp_label = self.timestamp_label
+        
+        return cb
+    
+    def to_content_block_11(self):
+        """
+        Returns a tm11.ContentBlock based
+        on this model
+        """
+        
+        content_binding = tm11.ContentBinding(self.content_binding_and_subtype.content_binding.binding_id)
+        if self.content_binding_and_subtype.subtype:
+            content_binding.subtype_ids.append(self.content_binding_and_subtype.subtype.subtype_id)
+        cb = tm11.ContentBlock(content_binding = content_binding, content = self.content, padding = self.padding)
+        if self.timestamp_label:
+            cb.timestamp_label = self.timestamp_label
+        
+        return cb
+    
+    @staticmethod
+    def from_content_block_11(content_block, inbox_message=None):
+        """
+        Returns a ContentBlock model object
+        based on a tm11.ContentBlock object
+        
+        inbox_message is the models.InboxMessage that the 
+        content block arrived in
+        
+        NOTE THAT THIS FUNCTION DOES NOT CALL save() on the
+        returned model.
+        """        
+        # Get the Content Binding Binding Id and (if present) Subtype
+        binding_id = content_block.content_binding.binding_id
+        subtype_id = None
+        if len(content_block.content_binding.subtype_ids) > 0:
+            subtype_id = content_block.content_binding.subtype_ids[0]
+        
+        cb = ContentBlock()
+                
+        try:
+            cbas = ContentBindingAndSubtype.objects.get(content_binding__binding_id=binding_id, 
+                                                        subtype__subtype_id=subtype_id)
+            cb.content_binding_and_subtype = cbas
+        except ContentBindingAndSubtype.DoesNotExist as dne:
+            raise StatusMessageException()
+        
+        cb.content = content_block.content
+        if content_block.padding:
+            cb.padding = content_block.padding
+        if content_block.message:
+            cb.message = content_block.message
+        if inbox_message:
+            cb.inbox_message = inbox_message
+        
+        return cb
+    
     def __unicode__(self):
         return u'#%s: %s; %s' % (self.id, self.content_binding_and_subtype, self.timestamp_label.isoformat())
 
@@ -365,6 +493,139 @@ class DataCollection(models.Model):
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def is_content_supported(self, cbas):
+        """
+        Takes an ContentBindingAndSubtype object and determines if
+        this data collection supports it.
+        
+        Decision process is:
+        1. If this accepts any content, return True
+        2. If this supports binding ID > (All), return True
+        3. If this supports binding ID and subtype ID, return True
+        4. Otherwise, return False,
+        """
+        
+        #1
+        if self.accept_all_content:
+            return True
+        
+        #2
+        if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = None)) > 0:
+            return True
+        
+        #2a (e.g., subtype = None so #3 would end up being the same check as #2)
+        if not cbas.subtype:#No further checking can be done 
+            return False
+        
+        #3
+        if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = cbas.subtype)) > 0:
+            return True
+        
+        #4
+        return False
+    
+    def to_collection_information_11(self):
+        """
+        Returns a tm11.CollectionInformation object
+        based on this model
+        """
+        ci = tm11.CollectionInformation(
+                collection_name = self.name,
+                collection_description = self.description,
+                supported_contents = self.model_get_supported_content_10(),
+                available = True,
+                push_methods = self.get_push_methods_11(),
+                polling_service_instances = self.get_polling_service_instances_11(),
+                subscription_methods = self.get_subscription_methods_11(),
+                collection_volume = None,#TODO: Maybe add this to the model?
+                collection_type = self.type,
+                receiving_inbox_services = self.get_receiving_inbox_services_11(),
+            )
+        return ci
+    
+    def get_supported_content_10(self):
+        return_list = []
+    
+        if self.accept_all_content:
+            return_list = None # Indicates accept all
+        else:
+            for content in self.supported_content.all():
+                return_list.append(content.content_binding.binding_id)
+        return return_list
+    
+    def get_supported_content_11(self):
+        return_list = []
+    
+        if self.accept_all_content:
+            return_list = None # Indicates accept all
+        else:
+            supported_content = {}
+            
+            for content in self.supported_content.all():
+                binding_id = content.content_binding.binding_id
+                subtype = content.subtype
+                if binding_id not in supported_content:
+                    supported_content[binding_id] = tm11.ContentBinding(binding_id = binding_id)
+                
+                if subtype and subtype.subtype_id not in supported_content[binding_id].subtype_ids:
+                    supported_content[binding_id].subtype_ids.append(subtype.subtype_id)
+            
+            return_list = supported_content.values()
+        
+        return return_list
+    
+    def get_push_methods_11(self):
+        #TODO: Implement this.
+        #This depends on the ability of taxii_services to push content
+        #and includes client capabilities
+        return None
+
+    def get_polling_service_instances_11(self):
+        """
+        Returns a list of tm11.PollingServiceInstance objects identifying the 
+        TAXII Poll Services that can be polled for this Data Collection
+        """
+        poll_instances = []
+        poll_services = models.PollService.objects.filter(data_collections=self)
+        for poll_service in poll_services:
+            message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
+            for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
+                poll_instance = tm11.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path, message_bindings)
+                poll_instances.append(poll_instance)
+        
+        return poll_instances
+
+    def get_subscription_methods_11(self):
+        """
+        Returns a list of tm11.SubscriptionMethod objects identifying the TAXII
+        Collection Management Services handling subscriptions for this Data Collection
+        """
+        # TODO: Probably wrong, but here's the idea
+        subscription_methods = []
+        collection_management_services = models.CollectionManagementService.objects.filter(advertised_collections=self)
+        for collection_management_service in collection_management_services:
+            message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
+            for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
+                subscription_method = tm11.SubscriptionMethod(supported_protocol_binding.binding_id, collection_management_service.path, message_bindings)
+                subscription_methods.append(subscription_method)
+        
+        return subscription_methods
+
+    def get_receiving_inbox_services_11(self):
+        """
+        Return a set of tm11.ReceivingInboxService objects identifying the TAXII
+        Inbox Services that accept content for this Data Collection.
+        """
+        receiving_inbox_services = []
+        inbox_services = models.InboxService.objects.filter(destination_collections=self)
+        for inbox_service in inbox_services:
+            message_bindings = [mb.binding_id for mb in inbox_service.supported_message_bindings.all()]
+            for supported_protocol_binding in inbox_service.supported_protocol_bindings.all():
+                receiving_inbox_service = tm11.ReceivingInboxService(supported_protocol_binding.binding_id, inbox_service.path, message_bindings, supported_contents=None)#TODO: Work on supported_contents
+                receiving_inbox_services.append(receiving_inbox_service)
+        
+        return receiving_inbox_services
     
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.type)
@@ -415,6 +676,34 @@ class DiscoveryService(_TaxiiService):
     advertised_poll_services = models.ManyToManyField('PollService', blank=True)
     advertised_collection_management_services = models.ManyToManyField('CollectionManagementService', blank=True)
     
+    def get_advertised_services(self):
+        # Chain together all the enabled services that this discovery service advertises
+        advertised_services = list(chain(self.advertised_discovery_services.filter(enabled=True),
+                                         self.advertised_poll_services.filter(enabled=True),
+                                         self.advertised_inbox_services.filter(enabled=True),
+                                         self.advertised_collection_management_services.filter(enabled=True)))
+        return advertised_services
+    
+    def to_discovery_response_10(self, in_response_to):
+        advertised_services = self.get_advertised_services()
+        discovery_response = tm10.DiscoveryResponse(generate_message_id(), in_response_to)
+        for service in advertised_services:
+            service_instances = service.to_service_instances_10()
+            discovery_response.service_instances.extend(service_instances)
+        
+        # Return the Discovery Response
+        return discovery_response
+    
+    def to_discovery_response_11(self, in_response_to):
+        advertised_services = self.get_advertised_services()
+        discovery_response = tm11.DiscoveryResponse(generate_message_id(), in_response_to)
+        for service in advertised_services:
+            service_instances = service.to_service_instances_11()
+            discovery_response.service_instances.extend(service_instances)
+        
+        # Return the Discovery Response
+        return discovery_response
+    
     class Meta:
         verbose_name = "Discovery Service"
 
@@ -444,6 +733,45 @@ class InboxMessage(models.Model):
     content_block_count = models.IntegerField()
     content_blocks_saved = models.IntegerField()
     
+    @staticmethod
+    def from_inbox_message_11(inbox_message, django_request, received_via=None):
+        """
+        Create an InboxMessage model object
+        from a tm11.InboxMessage object
+        
+        NOTE THAT THIS FUNCTION DOES NOT CALL .save()
+        """
+
+        # For bookkeeping purposes, create an InboxMessage object
+        # in the database
+        inbox_message_db = InboxMessage() # The database instance of the inbox message
+        inbox_message_db.message_id = inbox_message.message_id
+        inbox_message_db.sending_ip = django_request.META.get('REMOTE_ADDR', None)
+        if inbox_message.result_id:
+            inbox_message_db.result_id = inbox_message.result_id
+
+        if inbox_message.record_count:
+            inbox_message_db.record_count = inbox_message.record_count.record_count
+            inbox_message_db.partial_count = inbox_message.record_count.partial_count
+
+        if inbox_message.subscription_information:
+            inbox_message_db.collection_name = inbox_message.subscription_information.collection_name
+            inbox_message_db.subscription_id = inbox_message.subscription_information.subscription_id
+            #TODO: These might be wrong. Need to test to verify
+            if inbox_message.subscription_information.exclusive_begin_timestamp_label:
+                inbox_message_db.exclusive_begin_timestamp_label = inbox_message.subscription_information.exclusive_begin_timestamp_label
+            if inbox_message.subscription_information.inclusive_end_timestamp_label:
+                inbox_message_db.inclusive_begin_timestamp_label = inbox_message.subscription_information.inclusive_begin_timestamp_label
+
+        if received_via:
+            inbox_message_db.received_via = received_via # This is an inbox service
+
+        inbox_message_db.original_message = inbox_message.to_xml()
+        inbox_message_db.content_block_count = len(inbox_message.content_blocks)
+        inbox_message_db.content_blocks_saved = 0
+
+        return inbox_message_db
+    
     def __unicode__(self):
         return u'%s - %s' % (self.message_id, self.datetime_received)
     
@@ -463,6 +791,125 @@ class InboxService(_TaxiiService):
     destination_collections = models.ManyToManyField('DataCollection', blank=True)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
+    
+    def is_content_supported(self, cbas):
+        """
+        Takes an ContentBindingAndSubtype object and determines if
+        this data collection supports it.
+        
+        Decision process is:
+        1. If this accepts any content, return True
+        2. If this supports binding ID > (All), return True
+        3. If this supports binding ID and subtype ID, return True
+        4. Otherwise, return False,
+        """
+        
+        #1
+        if obj.accept_all_content:
+            return True
+        
+        #2
+        if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = None)) > 0:
+            return True
+        
+        #2a (e.g., subtype = None so #3 would end up being the same check as #2)
+        if not cbas.subtype:#No further checking can be done 
+            return False
+        
+        #3
+        if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = cbas.subtype)) > 0:
+            return True
+        
+        #4
+        return False
+    
+    def validate_destination_collection_names(self, name_list, in_response_to):
+        """
+        Returns a list of Data Collections or raises a 
+        StatusMessageException.
+        """
+        num = len(name_list)
+        if self.destination_collection_status == REQUIRED and num == 0:
+            raise StatusMessageException(in_response_to, 
+                                         DESTINATION_COLLECTION_ERROR, 
+                                         'A Destination_Collection_Name is required and none were specified', 
+                                         {SD_ACCEPTABLE_DESTINATION, [dc.name for dc in self.destination_collections]})
+        
+        if self.destination_collection_status == PROHIBITED and num > 0:
+            raise StatusMessageException(in_response_to, 
+                                         DESTINATION_COLLECTION_ERROR, 
+                                         'Destination_Collection_Names are prohibited on this Inbox Service', 
+                                         {SD_ACCEPTABLE_DESTINATION, [dc.name for dc in self.destination_collections]})
+        
+        collections = []
+        for name in name_list:
+            try:
+                collection = self.destination_collections.get(name=name, enabled=True)
+                collections.append(collection)
+            except:
+                raise StatusMessageException(in_response_to,
+                                             NOT_FOUND,
+                                             'The Data Collection was not found',
+                                             {SD_ITEM: name})
+        
+        return collections
+    
+    def to_service_instances_10(self):
+        """
+        Returns a tm10.ServiceInstance object
+        based on this model
+        """
+        service_instances = super(InboxService, self).to_service_instances_10()
+        if self.accept_all_content:
+            return service_instances
+        
+        for si in service_instances:
+            si.accepted_contents = self.get_supported_content_10()
+        return service_instances
+    
+    def to_service_instances_11(self):
+        """
+        Returns a tm11.ServiceInstance object
+        based on this model
+        """
+        service_instances = super(InboxService, self).to_service_instances_10()
+        if self.accept_all_content:
+            return service_instances
+        
+        for si in service_instances:
+            si.accepted_contents = self.get_supported_content_11()
+        return service_instances
+    
+    def get_supported_content_10(self):
+        return_list = []
+    
+        if self.accept_all_content:
+            return_list = None # Indicates accept all
+        else:
+            for content in self.supported_content.all():
+                return_list.append(content.content_binding.binding_id)
+        return return_list
+    
+    def get_supported_content_11(self):
+        return_list = []
+    
+        if self.accept_all_content:
+            return_list = None # Indicates accept all
+        else:
+            supported_content = {}
+            
+            for content in self.supported_content.all():
+                binding_id = content.content_binding.binding_id
+                subtype = content.subtype
+                if binding_id not in supported_content:
+                    supported_content[binding_id] = tm11.ContentBinding(binding_id = binding_id)
+                
+                if subtype and subtype.subtype_id not in supported_content[binding_id].subtype_ids:
+                    supported_content[binding_id].subtype_ids.append(subtype.subtype_id)
+            
+            return_list = supported_content.values()
+        
+        return return_list
     
     class Meta:
         verbose_name = "Inbox Service"
@@ -514,6 +961,29 @@ class PollService(_TaxiiService):
     data_collections = models.ManyToManyField('DataCollection')
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     requires_subscription = models.BooleanField(default=False)
+    
+    def validate_collection_name(self, name, in_response_to):
+        """
+        Returns a DataCollection object based on the name
+        or raises a StatusMessageException
+        """
+        try:
+            collection = self.data_collections.get(name=name)
+        except DataCollection.DoesNotExist as dne:
+            raise StatusMessageException(in_response_to, 
+                                         ST_NOT_FOUND, 
+                                         'The collection you requested was not found', 
+                                         {SD_ITEM: name})
+        
+        return collection
+    
+    def to_service_instances_11(self):
+        service_instances = super(PollService, self).to_service_instances_11()
+        
+        for si in service_instances:
+            for sq in self.supported_queries.all():
+                si.supported_query.append(sq.to_query_info_11())
+        return service_instances
     
     class Meta:
         verbose_name = "Poll Service"
@@ -594,6 +1064,36 @@ class ResultSetPart(models.Model):
         return u'ResultSet ID: %s; Collection: %s; Part#: %s.' % \
                (self.result_set.id, self.result_set.data_collection, self.part_number)
     
+    def to_poll_response_11(self, in_response_to):
+        """
+        Returns a tm11.PollResponse based on this model
+        """
+        
+        poll_response = tm11.PollResponse(
+                            message_id = tm11.generate_message_id(), 
+                            in_response_to = in_response_to,
+                            collection_name = self.result_set.data_collection.name)
+    
+        if self.exclusive_begin_timestamp_label:
+            poll_response.exclusive_begin_timestamp_label = self.exclusive_begin_timestamp_label
+        
+        if self.inclusive_end_timestamp_label:
+            poll_response.inclusive_end_timestamp_label = self.inclusive_end_timestamp_label
+        
+        if self.result_set.subscription:
+            poll_response.subscription_id = self.result_set.subscription.subscription_id
+        
+        poll_response.record_count = tm11.RecordCount(self.result_set.total_content_blocks, False)
+        poll_response.more = self.more
+        poll_response.result_id = str(self.result_set.pk)
+        poll_response.result_part_number = self.part_number
+        
+        for content_block in self.content_blocks.all():
+            cb = content_block.to_content_block_11()
+            poll_response.content_blocks.append(cb)
+        
+        return poll_response
+    
     class Meta:
         verbose_name = "Result Set Part"
         unique_together = ('result_set', 'part_number',)
@@ -614,6 +1114,42 @@ class Subscription(models.Model):
     date_paused = models.DateTimeField(blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def to_subscription_instance_10(self):
+        """
+        Returns a tm10.SubscriptionInstance object
+        based on this model
+        """
+        push_params = None # TODO: Implement this
+        poll_instances = None # TODO: Implement this
+        
+        si = tm10.SubscriptionInstance(
+                    subscription_id = self.subscription_id,
+                    push_parameters = push_params,
+                    poll_instances = poll_instances)
+        return si
+    
+    def to_subscription_instance_11(self):
+        """
+        Returns a tm11.SubscriptionInstance object based on this 
+        model
+        """
+        subscription_params = tm11.SubscriptionParameters(
+                                response_type = self.response_type,
+                                content_bindings = get_supported_content(self))
+        if self.query:
+            subscription_params.query = self.query.to_query_11()
+        
+        push_params = None # TODO: Implement this
+        poll_instances = None # TODO: Implement this
+        
+        si = tm11.SubscriptionInstance(
+                    subscription_id = self.subscription_id,
+                    status = self.status,
+                    subscription_parameters = subscription_params,
+                    push_parameters = push_params,
+                    poll_instances = poll_instances)
+        return si
     
     def __unicode__(self):
         return u'Subscription ID: %s' % self.subscription_id
@@ -636,6 +1172,30 @@ class SupportedQuery(models.Model):
     
     #TODO: Need to limit preferred/allowed scope choices by the selected QueryHandler
     
+    def to_query_info_11(self):
+        """
+        Returns a tdq.QueryInfo object
+        based on this model
+        """
+        preferred_scope = [ps.scope for ps in self.preferred_scope.all()]
+        allowed_scope = [as_.scope for as_ in self.allowed_scope.all()]
+        targeting_expression_id = self.query_handler.targeting_expression_id
+        
+        tei = tdq.DefaultQueryInfo.TargetingExpressionInfo(
+                targeting_expression_id = targeting_expression_id,
+                preferred_scope = preferred_scope,
+                allowed_scope = allowed_scope)
+        
+        #TODO: I don't think commas are permitted, but they'd break this processing
+        # Probably fix that, maybe through DB field validation
+        map = dict((ord(char), None) for char in " []\'")# This is stored in the DB as a python list, so get rid of all the "extras"
+        cm_list = self.query_handler.capability_modules.translate(map).split(',')
+
+        dqi = tdq.DefaultQueryInfo(
+                    targeting_expression_infos = [tei],
+                    capability_modules = cm_list)
+        return dqi
+    
     def __unicode__(self):
         return u'%s' % self.name
     
@@ -654,4 +1214,3 @@ class Validator(_Handler):
     model will leverage that validator concept.
     """
     handler_functions = ['validate']
-    

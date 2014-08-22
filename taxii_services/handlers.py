@@ -3,13 +3,46 @@
 
 import models
 from django.http import Http404
-import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
 import datetime
 from dateutil.tz import tzutc
 from importlib import import_module
 from exceptions import StatusMessageException
 from libtaxii.constants import *
+import sys
+from django.http import HttpResponse
+
+#TODO: Do these headers belong somewhere else?
+
+#: Django version of Content Type
+DJANGO_CONTENT_TYPE         = 'CONTENT_TYPE'
+#: Django version of Accept
+DJANGO_ACCEPT               = 'HTTP_ACCEPT'
+#: Django version of X-TAXII-Content-Type
+DJANGO_X_TAXII_CONTENT_TYPE = 'HTTP_X_TAXII_CONTENT_TYPE'
+#: Django version of X-TAXII-Protocol
+DJANGO_X_TAXII_PROTOCOL     = 'HTTP_X_TAXII_PROTOCOL'
+#: Django version of X-TAXII-Accept
+DJANGO_X_TAXII_ACCEPT       = 'HTTP_X_TAXII_ACCEPT'
+#: Django version of X-TAXII-Services
+DJANGO_X_TAXII_SERVICES     = 'HTTP_X_TAXII_SERVICES'
+
+#TODO: Maybe these header values belong in libtaxii.constants?
+
+#: HTTP Content Type header. Used in response message.
+HTTP_CONTENT_TYPE            = 'Content-Type'
+#: HTTP  header. Used in response message.
+HTTP_ACCEPT                  = 'Accept'
+#: HTTP X-TAXII-Content-Type header. Used in response message.
+HTTP_X_TAXII_CONTENT_TYPE    = 'X-TAXII-Content-Type'
+#: HTTP X-TAXII-Protocol header. Used in response message.
+HTTP_X_TAXII_PROTOCOL        = 'X-TAXII-Protocol'
+#: HTTP X-TAXII-Accept header. Used in response message.
+HTTP_X_TAXII_ACCEPT          = 'X-TAXII-Accept'
+#: HTTP X-TAXII-Services header. Used in response message.
+HTTP_X_TAXII_SERVICES        = 'X-TAXII-Services'
+
+REQUIRED_RESPONSE_HEADERS = (HTTP_CONTENT_TYPE, HTTP_X_TAXII_CONTENT_TYPE, HTTP_X_TAXII_PROTOCOL, HTTP_X_TAXII_SERVICES)
 
 def get_service_from_path(path):
     """
@@ -87,12 +120,11 @@ def get_message_handler(service, taxii_message):
     mt = taxii_message.message_type
     
     handler = None
-    
     if st == SVC_INBOX and mt == MSG_INBOX_MESSAGE:
         handler = service.inbox_message_handler
     elif st == SVC_POLL and mt == MSG_POLL_REQUEST:
         handler = service.poll_request_handler
-    elif st == SVC_POLL and mt == MSG_POLL_FULFILLMENT:
+    elif st == SVC_POLL and mt == MSG_POLL_FULFILLMENT_REQUEST:
         handler = service.poll_fulfillment_handler
     elif st == SVC_DISCOVERY and mt == MSG_DISCOVERY_REQUEST:
         handler = service.discovery_handler
@@ -108,128 +140,182 @@ def get_message_handler(service, taxii_message):
                                      (tm, st))
     
     module_name, class_name = handler.handler.rsplit('.', 1)
-    module = import_module(module_name)
-    handler_class = getattr(module, class_name)
+    try:
+        module = import_module(module_name)
+        handler_class = getattr(module, class_name)
+    except Exception as e:
+        type, value, traceback = sys.exc_info()
+        raise type, ("Error importing handler: %s" % handler.handler, type, value), traceback
     
     return handler_class
 
-def add_content_block_to_collection(content_block, collection):
-    #If the content block has a binding id only
-    # 1) accept if it there is a matching binding id + no subtype
-    #If the content block has a binding id and subtype 
-    # 2) accept it if there is a matching binding id + no subtype
-    # 3) accept it if there is a matching binding id + subtype
+class HttpResponseTaxii(HttpResponse):
+    """
+    A Django TAXII HTTP Response. Extends the base django.http.HttpResponse 
+    to allow quick and easy specification of TAXII HTTP headers.in
+    """
+    def __init__(self, taxii_xml, taxii_headers, *args, **kwargs):
+        super(HttpResponse, self).__init__(*args, **kwargs)
+        self.content = taxii_xml
+        for h in REQUIRED_RESPONSE_HEADERS:
+            if h not in taxii_headers:
+                raise ValueError("Required response header not specified: %s" % h)
+        
+        for k, v in taxii_headers.iteritems():
+            self[k.lower()] = v
+
+TAXII_11_HTTPS_Headers = {HTTP_CONTENT_TYPE: 'application/xml',
+                          HTTP_X_TAXII_CONTENT_TYPE: VID_TAXII_XML_11,
+                          HTTP_X_TAXII_PROTOCOL: VID_TAXII_HTTPS_10,
+                          HTTP_X_TAXII_SERVICES: VID_TAXII_SERVICES_11}
+
+TAXII_11_HTTP_Headers = {HTTP_CONTENT_TYPE: 'application/xml',
+                         HTTP_X_TAXII_CONTENT_TYPE: VID_TAXII_XML_11,
+                         HTTP_X_TAXII_PROTOCOL: VID_TAXII_HTTP_10,
+                         HTTP_X_TAXII_SERVICES: VID_TAXII_SERVICES_11}
+
+TAXII_10_HTTPS_Headers = {HTTP_CONTENT_TYPE: 'application/xml',
+                          HTTP_X_TAXII_CONTENT_TYPE: VID_TAXII_XML_10,
+                          HTTP_X_TAXII_PROTOCOL: VID_TAXII_HTTPS_10,
+                          HTTP_X_TAXII_SERVICES: VID_TAXII_SERVICES_10}
+
+TAXII_10_HTTP_Headers = {HTTP_CONTENT_TYPE: 'application/xml',
+                         HTTP_X_TAXII_CONTENT_TYPE: VID_TAXII_XML_10,
+                         HTTP_X_TAXII_PROTOCOL: VID_TAXII_HTTP_10,
+                         HTTP_X_TAXII_SERVICES: VID_TAXII_SERVICES_10}
+
+def get_headers(taxii_services_version, is_secure):
+    """
+    Convenience method for selecting headers
+    """
+    if taxii_services_version == VID_TAXII_SERVICES_11 and is_secure:
+        return TAXII_11_HTTPS_Headers
+    elif taxii_services_version == VID_TAXII_SERVICES_11 and not is_secure:
+        return TAXII_11_HTTP_Headers
+    elif taxii_services_version == VID_TAXII_SERVICES_10 and is_secure:
+        return TAXII_10_HTTPS_Headers
+    elif taxii_services_version == VID_TAXII_SERVICES_10 and not is_secure:
+        return TAXII_10_HTTP_Headers
+    else:
+        raise ValueError("Unknown combination for taxii_services_version and is_secure!")
+
+# def add_content_block_to_collection(content_block, collection):
+    # #If the content block has a binding id only
+    # # 1) accept if it there is a matching binding id + no subtype
+    # #If the content block has a binding id and subtype 
+    # # 2) accept it if there is a matching binding id + no subtype
+    # # 3) accept it if there is a matching binding id + subtype
     
-    #Look up the content binding in the database
-    try:
-        binding = models.ContentBinding.get(binding_id=content_block.content_binding.binding_id)
-    except:
-        return False, 'Content Binding not located in database'
+    # #Look up the content binding in the database
+    # try:
+        # binding = models.ContentBinding.get(binding_id=content_block.content_binding.binding_id)
+    # except:
+        # return False, 'Content Binding not located in database'
     
-    #Try to match on content binding only - this satisfies conditions #1 & 2
-    if len(collection.supported_content.filter(content_binding=binding, subtype=None)) > 0:
-        collection.content_blocks.add(content_block)
-    return True, None
+    # #Try to match on content binding only - this satisfies conditions #1 & 2
+    # if len(collection.supported_content.filter(content_binding=binding, subtype=None)) > 0:
+        # collection.content_blocks.add(content_block)
+    # return True, None
     
-    if len(content_block.content_binding.subtype_ids) == 0:
-        return False, 'No match found for supplied content binding'
+    # if len(content_block.content_binding.subtype_ids) == 0:
+        # return False, 'No match found for supplied content binding'
     
-    #Look up the subtype ID in the database
-    try:
-        subtype = models.ContentBindingSubtype.get(subtype_id = content_block.content_binding.subtype_ids[0])
-    except:
-        return False, 'Content Binding Subtype not located in database'
+    # #Look up the subtype ID in the database
+    # try:
+        # subtype = models.ContentBindingSubtype.get(subtype_id = content_block.content_binding.subtype_ids[0])
+    # except:
+        # return False, 'Content Binding Subtype not located in database'
     
-    if len(collection.supported_content.filter(content_binding=binding, subtype=subtype)):
-        collection.content_blocks.add(content_block)
-        return True, None
+    # if len(collection.supported_content.filter(content_binding=binding, subtype=subtype)):
+        # collection.content_blocks.add(content_block)
+        # return True, None
     
-    return False, 'No match could be found'
+    # return False, 'No match could be found'
 
 
-def is_content_supported(obj, content_block): #binding_id, subtype_id = None):
-    """
-    Takes an object and a content block and determines whether
-    obj (usually an Inbox Service or Data Collection) supports that (
-    e.g., whether the content block can be added).
+# def is_content_supported(obj, content_block): #binding_id, subtype_id = None):
+    # """
+    # Takes an object and a content block and determines whether
+    # obj (usually an Inbox Service or Data Collection) supports that (
+    # e.g., whether the content block can be added).
     
-    Decision process is:
-    1. If obj accepts any content, return True
-    2. If obj supports binding ID > (All), return True
-    3. If obj supports binding ID and subtype ID, return True
-    4. Otherwise, return False,
+    # Decision process is:
+    # 1. If obj accepts any content, return True
+    # 2. If obj supports binding ID > (All), return True
+    # 3. If obj supports binding ID and subtype ID, return True
+    # 4. Otherwise, return False,
     
-    Works on any model with 'accept_all_content' (bool) and 
-    'supported_content' (many to many to ContentBindingAndSubtype) fields
-    """
+    # Works on any model with 'accept_all_content' (bool) and 
+    # 'supported_content' (many to many to ContentBindingAndSubtype) fields
+    # """
     
-    binding_id = content_block.content_binding.binding_id
-    subtype_id = None
-    if len(content_block.content_binding.subtype_ids) > 0:
-        subtype_id = content_block.content_binding.subtype_ids[0]
+    # binding_id = content_block.content_binding.binding_id
+    # subtype_id = None
+    # if len(content_block.content_binding.subtype_ids) > 0:
+        # subtype_id = content_block.content_binding.subtype_ids[0]
     
-    #TODO: I think this works, but this logic can probably be cleaned up
-    if obj.accept_all_content:
-        return True
+    # #TODO: I think this works, but this logic can probably be cleaned up
+    # if obj.accept_all_content:
+        # return True
     
-    try:
-        binding = models.ContentBinding.objects.get(binding_id = binding_id)
-    except:
-        raise
-        return False
+    # try:
+        # binding = models.ContentBinding.objects.get(binding_id = binding_id)
+    # except:
+        # raise
+        # return False
     
-    if len(obj.supported_content.filter(content_binding = binding, subtype = None)) > 0:
-        return True
+    # if len(obj.supported_content.filter(content_binding = binding, subtype = None)) > 0:
+        # return True
     
-    if not subtype_id:#No further checking can be done 
-        return False
+    # if not subtype_id:#No further checking can be done 
+        # return False
     
-    try:
-        subtype = models.ContentBindingSubtype.objects.get(parent = binding, subtype_id = subtype_id)
-    except:
-        raise
-        False
+    # try:
+        # subtype = models.ContentBindingSubtype.objects.get(parent = binding, subtype_id = subtype_id)
+    # except:
+        # raise
+        # False
     
-    if len(obj.supported_content.filter(content_binding = binding, subtype = subtype)) > 0:
-        return True
+    # if len(obj.supported_content.filter(content_binding = binding, subtype = subtype)) > 0:
+        # return True
     
-    return False
+    # return False
 
-def create_inbox_message_db(inbox_message, django_request, received_via=None):
-    """
-    The InboxMessage model is used for bookkeeping purposes.
-    """
+# def create_inbox_message_db(inbox_message, django_request, received_via=None):
+    # """
+    # The InboxMessage model is used for bookkeeping purposes.
+    # """
     
-    # For bookkeeping purposes, create an InboxMessage object
-    # in the database
-    inbox_message_db = models.InboxMessage() # The database instance of the inbox message
-    inbox_message_db.message_id = inbox_message.message_id
-    inbox_message_db.sending_ip = django_request.META.get('REMOTE_ADDR', None)
-    if inbox_message.result_id:
-        inbox_message_db.result_id = inbox_message.result_id
+    # # For bookkeeping purposes, create an InboxMessage object
+    # # in the database
+    # inbox_message_db = models.InboxMessage() # The database instance of the inbox message
+    # inbox_message_db.message_id = inbox_message.message_id
+    # inbox_message_db.sending_ip = django_request.META.get('REMOTE_ADDR', None)
+    # if inbox_message.result_id:
+        # inbox_message_db.result_id = inbox_message.result_id
     
-    if inbox_message.record_count:
-        inbox_message_db.record_count = inbox_message.record_count.record_count
-        inbox_message_db.partial_count = inbox_message.record_count.partial_count
+    # if inbox_message.record_count:
+        # inbox_message_db.record_count = inbox_message.record_count.record_count
+        # inbox_message_db.partial_count = inbox_message.record_count.partial_count
     
-    if inbox_message.subscription_information:
-        inbox_message_db.collection_name = inbox_message.subscription_information.collection_name
-        inbox_message_db.subscription_id = inbox_message.subscription_information.subscription_id
-        #TODO: These might be wrong. Need to test to verify
-        if inbox_message.subscription_information.exclusive_begin_timestamp_label:
-            inbox_message_db.exclusive_begin_timestamp_label = inbox_message.subscription_information.exclusive_begin_timestamp_label
-        if inbox_message.subscription_information.inclusive_end_timestamp_label:
-            inbox_message_db.inclusive_begin_timestamp_label = inbox_message.subscription_information.inclusive_begin_timestamp_label
+    # if inbox_message.subscription_information:
+        # inbox_message_db.collection_name = inbox_message.subscription_information.collection_name
+        # inbox_message_db.subscription_id = inbox_message.subscription_information.subscription_id
+        # #TODO: These might be wrong. Need to test to verify
+        # if inbox_message.subscription_information.exclusive_begin_timestamp_label:
+            # inbox_message_db.exclusive_begin_timestamp_label = inbox_message.subscription_information.exclusive_begin_timestamp_label
+        # if inbox_message.subscription_information.inclusive_end_timestamp_label:
+            # inbox_message_db.inclusive_begin_timestamp_label = inbox_message.subscription_information.inclusive_begin_timestamp_label
     
-    if received_via:
-        inbox_message_db.received_via = received_via # This is an inbox service
+    # if received_via:
+        # inbox_message_db.received_via = received_via # This is an inbox service
     
-    inbox_message_db.original_message = inbox_message.to_xml()
-    inbox_message_db.content_block_count = len(inbox_message.content_blocks)
-    inbox_message_db.content_blocks_saved = 0
-    inbox_message_db.save()
+    # inbox_message_db.original_message = inbox_message.to_xml()
+    # inbox_message_db.content_block_count = len(inbox_message.content_blocks)
+    # inbox_message_db.content_blocks_saved = 0
+    # inbox_message_db.save()
     
-    return inbox_message_db
+    # return inbox_message_db
 
 def create_result_set(results, data_collection, exclusive_begin_timestamp_label = None, inclusive_end_timestamp_label = None):
     """
@@ -257,7 +343,7 @@ def create_result_set(results, data_collection, exclusive_begin_timestamp_label 
         content_blocks = results[i: i + content_blocks_per_result_set]
         rsp.content_block_count = len(content_blocks)
         
-        if data_collection.type == tm11.CT_DATA_FEED: # Need to set timestamp label fields
+        if data_collection.type == CT_DATA_FEED: # Need to set timestamp label fields
             # Set the begin TS label
             # For the first part, use the exclusive begin timestamp label supplied as an arg,
             # as that's the exclusive begin timestmap label for the whole result set and 

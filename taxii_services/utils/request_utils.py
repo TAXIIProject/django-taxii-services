@@ -5,9 +5,10 @@ import libtaxii as t
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
-
+from libtaxii.constants import *
 from functools import wraps
 import response_utils
+from taxii_services.exceptions import StatusMessageException
 
 #1. Validate request (headers, POST) [common]
 #2. Deserialize message [pretty common]
@@ -51,24 +52,34 @@ class HeaderRule:
             if request_value not in rule.value_list:
                 raise ValueError('Header value not in allowed list. Header name: %s; Allowed values: %s;' % (header_name, rule.value_list))
 
-#Rules you can use for TAXII 1.1 Services
+# Rules you can use for TAXII 1.1 Services
 TAXII_11_HeaderRules = [
     HeaderRule('CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, 'application/xml'),
     HeaderRule('HTTP_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, 'application/xml'),
-    HeaderRule('HTTP_X_TAXII_CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, t.VID_TAXII_XML_11),
-    HeaderRule('HTTP_X_TAXII_PROTOCOL', HeaderRule.PRESENCE_REQUIRED, [t.VID_TAXII_HTTP_10, t.VID_TAXII_HTTP_10]),
-    HeaderRule('HTTP_X_TAXII_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, t.VID_TAXII_XML_11),
-    HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, t.VID_TAXII_SERVICES_11)]
+    HeaderRule('HTTP_X_TAXII_CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_XML_11),
+    HeaderRule('HTTP_X_TAXII_PROTOCOL', HeaderRule.PRESENCE_REQUIRED, [VID_TAXII_HTTP_10, VID_TAXII_HTTP_10]),
+    HeaderRule('HTTP_X_TAXII_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, VID_TAXII_XML_11),
+    HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_SERVICES_11)]
 
+# Rules you can use for TAXII 1.0 Services
 TAXII_10_HeaderRules = [
     HeaderRule('CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, 'application/xml'),
     HeaderRule('HTTP_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, 'application/xml'),
-    HeaderRule('HTTP_X_TAXII_CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, t.VID_TAXII_XML_10),
-    HeaderRule('HTTP_X_TAXII_PROTOCOL', HeaderRule.PRESENCE_REQUIRED, [t.VID_TAXII_HTTP_10, t.VID_TAXII_HTTP_10]),
-    HeaderRule('HTTP_X_TAXII_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, t.VID_TAXII_XML_10),
-    HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, t.VID_TAXII_SERVICES_10)]
+    HeaderRule('HTTP_X_TAXII_CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_XML_10),
+    HeaderRule('HTTP_X_TAXII_PROTOCOL', HeaderRule.PRESENCE_REQUIRED, [VID_TAXII_HTTP_10, VID_TAXII_HTTP_10]),
+    HeaderRule('HTTP_X_TAXII_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, VID_TAXII_XML_10),
+    HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_SERVICES_10)]
 
-def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_validate = True):
+# Rules you can use for TAXII 1.1 & 1.0 services
+TAXII_HeaderRules = [
+    HeaderRule('CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, 'application/xml'),
+    HeaderRule('HTTP_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, 'application/xml'),
+    HeaderRule('HTTP_X_TAXII_CONTENT_TYPE', HeaderRule.PRESENCE_REQUIRED, [VID_TAXII_XML_10, VID_TAXII_XML_11]),
+    HeaderRule('HTTP_X_TAXII_PROTOCOL', HeaderRule.PRESENCE_REQUIRED, [VID_TAXII_HTTP_10, VID_TAXII_HTTP_10]),
+    HeaderRule('HTTP_X_TAXII_ACCEPT', HeaderRule.PRESENCE_OPTIONAL, [VID_TAXII_XML_10, VID_TAXII_XML_11]),
+    HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_SERVICES_10)]
+
+def validate_taxii(header_rules=TAXII_HeaderRules, message_types = None, do_validate = True):
     #print "hr", header_rules
     #print "mts", message_types
     #print "dv", do_validate
@@ -76,51 +87,23 @@ def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_v
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            ### Begin Picking Response Headers
-            response_headers = {'Content-Type': 'application/xml'}
-            x_taxii_content_type = request.META.get('HTTP_X_TAXII_CONTENT_TYPE', None)
-            #TODO: Choose this first based on the X-TAXII-Accept header value and only use
-            #      the Content-Type as a fallback.
-            if x_taxii_content_type == t.VID_TAXII_XML_10:#Use TAXII 1.0 if we know its supported
-                sm = tm10.StatusMessage
-                response_headers['X-TAXII-Content-Type'] = t.VID_TAXII_XML_10
-                response_headers['X-TAXII-Services'] = t.VID_TAXII_SERVICES_10
-            else:#Use TAXII 1.1 by default
-                sm = tm11.StatusMessage
-                response_headers['X-TAXII-Content-Type'] = t.VID_TAXII_XML_11
-                response_headers['X-TAXII-Services'] = t.VID_TAXII_SERVICES_11
-            
-            if request.is_secure():
-                response_headers['X-TAXII-Protocol'] = t.VID_TAXII_HTTPS_10
-            else:
-                response_headers['X-TAXII-Protocol'] = t.VID_TAXII_HTTP_10
-            ### End Picking Response Headers
-            
-            #Evaluate Header Rules
-            try:
-                HeaderRule.evaluate_header_rules(request, header_rules)
-            except ValueError as e:
-                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message=e.message)
-                return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             if request.method != 'POST':
-                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message='Request method was not POST')
-                return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
+                raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request method was not POST!')
             
             #If requested, attempt to validate
+            # TODO: Validation has changed!
             if do_validate:
                 try:
                     validate(request)
                 except Exception as e:
-                    msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='BAD_MESSAGE', message=e.message)
-                    return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
+                    raise StatusMessageException('0', ST_BAD_MESSAGE, e.message)
             
             #Attempt to deserialize
             try:
                 message = deserialize(request)
             except Exception as e:
-                msg = tm11.StatusMessage(tm11.generate_message_id(), '0', status_type='FAILURE', message=e.message)
-                return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
+                raise StatusMessageException('0', ST_BAD_MESSAGE, e.message)
             
             try:
                 if message_types is None:
@@ -134,56 +117,13 @@ def validate_taxii(header_rules=TAXII_11_HeaderRules, message_types = None, do_v
                 elif message_types is not None:
                     raise ValueError('Something strange happened with message_types! Was not a list or object!')
             except ValueError as e:
-                msg = tm11.StatusMessage(tm11.generate_message_id(), message.message_id, status_type='FAILURE', message=e.message)
+                msg = tm11.StatusMessage(generate_message_id(), message.message_id, status_type='FAILURE', message=e.message)
                 return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
             
             kwargs['taxii_message'] = message
             return view_func(request, *args, **kwargs)
         return _wrapped_view
     return decorator
-
-    #TODO: This is older and is superseded by the decorator. Consider removing this.
-# def validate_and_parse_request(django_request, header_rules, message_types = None, do_validate = True):
-    # """
-    # django_request - a Django HTTP Request from the user agent
-    # header_rules - a list of HeaderRule objects to be evaluated
-    # message_types - a list of allowed message types, 
-                    # a string with one allowed message type, 
-                    # or None (no check will be done)
-    # do_validate - a boolean (True/False) indicating whether the request.body 
-               # should be validated against known validators. An 
-               # exception will be thrown if a validator is not found.
-    
-    # This function does the following:
-    # 1. Evaluates the supplied header rules against the Django request
-       # and raises an Exception if a rule is violated
-    # 2. Checks to see if the method is POST (all TAXII requests are post)
-       # Raises an Exception if the method is not POST
-    # 3. Deserializes the message.
-    # 4. If message_types is not None, check to see if the message.message_type
-       # property is in the supplied list (or matches the supplied string)
-    # """
-    
-    # HeaderRule.evaluate_header_rules(django_request, header_rules)
-    
-    # if django_request.method != 'POST':
-        # raise Exception('Request method was not POST')
-    
-    # if do_validate:
-        # validate(django_request)
-        
-    # message = deserialize(django_request)
-    
-    # if isinstance(message_types, list):
-        # if message.__class__ not in message_types:
-            # raise Exception('Message type not allowed. Must be one of: %s' % message_types)
-    # elif isinstance(message_types, object):
-        # if not isinstance(message, message_types):
-            # raise Exception('Message type not allowed. Must be: %s' % message_types)
-    # elif message_types is not None:
-        # raise Exception('Something strange happened with message_types! Was not a list or object!')
-    
-    # return message
 
 def deserialize(django_request):
     """
@@ -245,8 +185,8 @@ def register_deserializer(content_type, x_taxii_content_type, deserialize_functi
     validators[deserializer_key] = validate_function
 
 #A TAXII XML 1.1 and XML 1.0 Deserializer (libtaxii) is registered by default
-register_deserializer('application/xml', t.VID_TAXII_XML_11, tm11.get_message_from_xml, tm11.validate_xml)
-register_deserializer('application/xml', t.VID_TAXII_XML_10, tm10.get_message_from_xml, tm10.validate_xml)
+register_deserializer('application/xml', VID_TAXII_XML_11, tm11.get_message_from_xml, tm11.validate_xml)
+register_deserializer('application/xml', VID_TAXII_XML_10, tm10.get_message_from_xml, tm10.validate_xml)
 
 def deregister_deserializer(content_type, x_taxii_content_type):
     """

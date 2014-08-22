@@ -118,7 +118,7 @@ class MessageHandler(object):
                                          "The specified value of Accept is not supported")
         
         #Validate the X-TAXII-Accept header
-        # TODO: Accept more "exotic" accept headers (e.g., ones that specify more
+        # TODO: Accept more "complex" accept headers (e.g., ones that specify more
         #       than one value)
         if xta not in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
             raise StatusMessageException(in_response_to,

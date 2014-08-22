@@ -4,11 +4,9 @@
 import logging
 from django.http import HttpResponseServerError
 
-import libtaxii as t
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
+from libtaxii.constants import *
 
-from taxii_services.utils import response_utils
+import handlers
 from exceptions import StatusMessageException
 import settings
 import traceback
@@ -20,25 +18,34 @@ class StatusMessageExceptionMiddleware(object):
     pass on the Exception to the next Middleware object
     """
     def process_exception(self, request, exception):
+        
         if not isinstance(exception, StatusMessageException):
             return None # This class only handles StatusMessageExceptions
+        
+        version = None
         
         a = request.META.get('HTTP_ACCEPT', None)
         if a not in ('application/xml', None): # This application doesn't know how to handle this
             return HttpResponse(status_code=406) # Unacceptable
         
         xta = request.META.get('HTTP_X_TAXII_ACCEPT', None)
-        if xta is None: # Can respond with whatever we want, try to use the X-TAXII-Content-Type header to pick
+        if xta is None: # Can respond with whatever we want. try to use the X-TAXII-Content-Type header to pick
             xtct = request.META.get('HTTP_X_TAXII_CONTENT_TYPE', None)
-            if xtct in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
-                xta = xtct
+            if xtct == VID_TAXII_XML_10:
+                sm = exception.get_status_message_10()
+                version = VID_TAXII_SERVICES_10
             else:#Well, we tried - use TAXII XML 1.1 as a default
-                xta = t.VID_TAXII_XML_11
-        
-        if xta in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
-            sm = exception.get_status_message(xta)
+                sm = exception.get_status_message_11()
+                version = VID_TAXII_SERVICES_11
+        elif xta == VID_TAXII_XML_10:
+            sm = exception.get_status_message_10()
+            version = VID_TAXII_SERVICES_10
+        elif xta == VID_TAXII_XML_11:
+            sm = exception.get_status_message_11()
+            version = VID_TAXII_SERVICES_11
         else:
-            raise Exception("Unknown X-TAXII-Accept value: %s" % xta)
+            #TODO: Not sure what to return here. Need to dig into this a bit to find out
+            raise ValueError("Unknown X-TAXII-Accept value: %s" % xta)
         
-        response_headers = response_utils.get_headers(xta, request.is_secure())
-        return response_utils.create_taxii_response(sm.to_xml(pretty_print=True), response_headers)
+        response_headers = handlers.get_headers(version, request.is_secure())
+        return handlers.HttpResponseTaxii(sm.to_xml(pretty_print=True), response_headers)
