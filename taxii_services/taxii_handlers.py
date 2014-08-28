@@ -2,7 +2,6 @@
 # For license information, see the LICENSE.txt file
 
 import handlers
-import taxiifiers
 import models
 
 import libtaxii as t
@@ -39,7 +38,7 @@ class DiscoveryRequest10Handler(MessageHandler):
 
 class DiscoveryRequestHandler(MessageHandler):
     """
-    Supports both TAXII 1.1 and TAXII 1.0 requests
+    Built-in TAXII 1.1 and TAXII 1.0 Discovery Request Handler
     """
     supported_request_messages = [tm10.DiscoveryRequest, tm11.DiscoveryRequest]
     version = "1"
@@ -57,7 +56,7 @@ class DiscoveryRequestHandler(MessageHandler):
 
 class InboxMessage11Handler(MessageHandler):
     """
-    Built-in Inbox Message Handler.
+    Built-in TAXII 1.1 Inbox Message Handler.
     """
     
     supported_request_messages = [tm11.InboxMessage]
@@ -113,24 +112,41 @@ class InboxMessage11Handler(MessageHandler):
         return status_message
 
 class InboxMessage10Handler(MessageHandler):
+    """
+    Built in TAXII 1.0 Message Handler
+    """
     supported_request_messages = [tm10.InboxMessage]
     version = "1"
+    
+    DEBUG=True
     
     @staticmethod
     def handle_message(inbox_service, inbox_message, django_request):
         pass
 
 class InboxMessageHandler(MessageHandler):
+    """
+    Built-in TAXII 1.1 and 1.0 Message Handler
+    """
     supported_request_messages = [tm10.InboxMessage, tm11.InboxMessage]
     version = "1"
     
+    DEBUG=True
+    
     @staticmethod
     def handle_message(inbox_service, inbox_message, django_request):
-        pass
+        if isinstance(inbox_message, tm10.InboxMessage):
+            return InboxMessage10Handler.handle_message(inbox_service, inbox_message, django_request)
+        elif isinstance(inbox_message, tm11.InboxMessage):
+            return InboxMessage11Handler.handle_message(inbox_service, inbox_message, django_request)
+        else:
+            raise StatusMessageException(taxii_message.message_id,
+                                         ST_FAILURE,
+                                         "TAXII Message not supported by Message Handler.")
 
 class PollFulfillmentRequest11Handler(MessageHandler):
     """
-    Built-in Poll Fulfillment Request Handler.
+    Built-in TAXII 1.1 Poll Fulfillment Request Handler.
     """
     supported_request_messages = [tm11.PollFulfillmentRequest]
     version = "1"
@@ -156,7 +172,7 @@ class PollFulfillmentRequest11Handler(MessageHandler):
 
 class PollRequest11Handler(MessageHandler):
     """
-    Built-in Poll Request Handler
+    Built-in TAXII 1.1 Poll Request Handler
     """
     
     supported_request_messages = [tm11.PollRequest]
@@ -335,17 +351,27 @@ class PollRequest10Handler(MessageHandler):
     version = "1"
     
     @staticmethod
-    def handle_message(inbox_service, inbox_message, django_request):
+    def handle_message(poll_service, poll_message, django_request):
         pass
 
 class PollRequestHandler(MessageHandler):
     """
-    Built-int TAXII 1.1 and TAXII 1.0 Poll Request Handler
+    Built-in TAXII 1.1 and TAXII 1.0 Poll Request Handler
     """
     
+    supported_request_messages = [tm10.PollRequest, tm11.PollRequest]
+    version = "1"
+    
     @staticmethod
-    def handle_message(inbox_service, inbox_message, django_request):
-        pass
+    def handle_message(poll_service, poll_message, django_request):
+        if isinstance(poll_message, tm10.InboxMessage):
+            return PollRequest10Handler.handle_message(poll_service, poll_message, django_request)
+        elif isinstance(poll_message, tm11.InboxMessage):
+            return PollRequest11Handler.handle_message(poll_service, poll_message, django_request)
+        else:
+            raise StatusMessageException(taxii_message.message_id,
+                                         ST_FAILURE,
+                                         "TAXII Message not supported by Message Handler.")
 
 class CollectionInformationRequest11Handler(MessageHandler):
     """
@@ -364,7 +390,7 @@ class CollectionInformationRequest11Handler(MessageHandler):
 
 class FeedInformationRequest10Handler(MessageHandler):
     """
-    Built-in TAXII 1.0 Collection Information Request Handler
+    Built-in TAXII 1.0 Feed Information Request Handler
     """
     supported_request_messages = [tm10.FeedInformationRequest]
     version = "1"
@@ -379,7 +405,7 @@ class FeedInformationRequest10Handler(MessageHandler):
 
 class CollectionInformationRequestHandler(MessageHandler):
     """
-    Built-in Collection Information Request handler. Supports TAXII 1.0 and 1.1
+    Built-in TAXII 1.1 and 1.0 Collection/Feed Information Request handler.
     """
     
     supported_request_messages = [tm10.FeedInformationRequest, tm11.CollectionInformationRequest]
@@ -401,7 +427,7 @@ class CollectionInformationRequestHandler(MessageHandler):
 
 class SubscriptionRequest11Handler(MessageHandler):
     """
-    Built-in TAXII 1.1 Management Collection Subscription Request Handler.
+    Built-in TAXII 1.1 Manage Collection Subscription Request Handler.
     """
     
     supported_request_messages = [tm11.ManageCollectionSubscriptionRequest]
@@ -547,20 +573,58 @@ class SubscriptionRequest11Handler(MessageHandler):
 
 class SubscriptionRequest10Handler(MessageHandler):
     """
-    Built-in TAXII 1.0 Management Collection Subscription Request Handler.
+    Built-in TAXII 1.0 Manage Collection Subscription Request Handler.
     """
     
     supported_request_messages = [tm10.ManageFeedSubscriptionRequest]
     version = "1"
     
-    pass
+    @staticmethod
+    def handle_message(feed_management_service, manage_feed_subscription_request, django_request):
+        pass
 
 class SubscriptionRequestHandler(MessageHandler):
     """
-    Built-in TAXII 1.1 and TAXII 1.0 Management Collection Subscription Request Handler.
+    Built-in TAXII 1.1 and TAXII 1.0 Management Collection/Feed Subscription Request Handler.
     """
     
     supported_request_messages = [tm11.ManageCollectionSubscriptionRequest, tm10.ManageFeedSubscriptionRequest]
     version = "1"
     
-    pass
+    @staticmethod
+    def handle_message(collection_management_service, manage_collection_subscription_request, django_request):
+        #aliases because names are long
+        cms = collection_management_service
+        mcsr = manage_collection_subscription_request
+        dr = django_request
+        
+        if isinstance(mcsr, tm10.ManageFeedSubscriptionRequest):
+            return SubscriptionRequest10Handler.handle_message(cms, mcsr, dr)
+        elif isinstance(mcsr, tm11.ManageCollectionSubscriptionRequest):
+            return SubscriptionRequest11Handler.handle_message(cms, mcsr, dr)
+        else:
+            raise StatusMessageException(taxii_message.message_id,
+                                         ST_FAILURE,
+                                         "TAXII Message not supported by Message Handler.")
+
+def register_message_handlers(handler_list=None):
+    import management, inspect, taxii_services.taxii_handlers
+        
+    v = vars(taxii_services.taxii_handlers)
+    
+    if not handler_list:
+        handler_list = []
+        for name, obj in v.iteritems():
+            if inspect.isclass(obj) and obj.__module__ == 'taxii_services.taxii_handlers':
+                handler_list.append(name)
+    
+    for handler in handler_list:
+        obj = v.get(handler, None)
+        if (  not obj or
+              not inspect.isclass(obj)  or
+              not obj.__module__ == 'taxii_services.taxii_handlers' ):
+            raise ValueError('%s is not a valid Message Handler' % handler)
+        
+        assert issubclass(obj, MessageHandler)
+        
+        management.register_message_handler(obj, handler)

@@ -11,6 +11,7 @@ from exceptions import StatusMessageException
 from libtaxii.constants import *
 import sys
 from django.http import HttpResponse
+from copy import deepcopy
 
 #TODO: Do these headers belong somewhere else?
 
@@ -137,7 +138,7 @@ def get_message_handler(service, taxii_message):
         raise StatusMessageException(taxii_message.message_id, 
                                      ST_FAILURE, 
                                      "Message Type: %s is not supported by %s" % \
-                                     (tm, st))
+                                     (mt, st))
     
     module_name, class_name = handler.handler.rsplit('.', 1)
     try:
@@ -189,13 +190,13 @@ def get_headers(taxii_services_version, is_secure):
     Convenience method for selecting headers
     """
     if taxii_services_version == VID_TAXII_SERVICES_11 and is_secure:
-        return TAXII_11_HTTPS_Headers
+        return deepcopy(TAXII_11_HTTPS_Headers)
     elif taxii_services_version == VID_TAXII_SERVICES_11 and not is_secure:
-        return TAXII_11_HTTP_Headers
+        return deepcopy(TAXII_11_HTTP_Headers)
     elif taxii_services_version == VID_TAXII_SERVICES_10 and is_secure:
-        return TAXII_10_HTTPS_Headers
+        return deepcopy(TAXII_10_HTTPS_Headers)
     elif taxii_services_version == VID_TAXII_SERVICES_10 and not is_secure:
-        return TAXII_10_HTTP_Headers
+        return deepcopy(TAXII_10_HTTP_Headers)
     else:
         raise ValueError("Unknown combination for taxii_services_version and is_secure!")
 

@@ -17,6 +17,10 @@ class MessageHandler(object):
     #: e.g., [tm11.InboxMessage]
     supported_request_messages = None
     
+    #: If DEBUG is set to true by the child class, django-taxii-services will print more information
+    #: when the message handler fails
+    DEBUG = False
+    
     @classmethod
     def get_supported_request_messages(cls):
         if not cls.supported_request_messages:
@@ -58,6 +62,8 @@ class MessageHandler(object):
         # These headers are optional
         accept = django_request.META.get('HTTP_ACCEPT', None)
         xta = django_request.META.get('HTTP_X_TAXII_ACCEPT', None)
+        #for k, v in django_request.META.iteritems():
+        #    print '%s: %s' % (k, v)
         
         #Identify which TAXII versions the message handler supports
         supports_taxii_11 = False
@@ -74,13 +80,13 @@ class MessageHandler(object):
         
         # Next, determine whether the MessageHandler supports the headers
         # Validate the X-TAXII-Services header
-        if svcs not in (t.VID_TAXII_SERVICES_11, t.VID_TAXII_SERVICES_10):
+        if svcs not in (VID_TAXII_SERVICES_11, VID_TAXII_SERVICES_10):
             raise StatusMessageException(in_response_to, 
                                          'FAILURE', 
                                          "The value of X-TAXII-Services was not recognized.")
         
-        if (  (svcs == t.VID_TAXII_SERVICES_11 and not supports_taxii_11) or 
-              (svcs == t.VID_TAXII_SERVICES_10 and not supports_taxii_10)  ):
+        if (  (svcs == VID_TAXII_SERVICES_11 and not supports_taxii_11) or 
+              (svcs == VID_TAXII_SERVICES_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to, 
                                          'FAILURE', 
                                          "The specified value of X-TAXII-Services (%s) \
@@ -93,20 +99,20 @@ class MessageHandler(object):
                                          "The specified value of Content-Type is not supported.")
         
         # Validate the X-TAXII-Content-Type header
-        if xtct not in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
+        if xtct not in (VID_TAXII_XML_11, VID_TAXII_XML_10):
             raise StatusMessageException(in_response_to, 
                                          'FAILURE', 
                                          "The value of X-TAXII-Content-Type was not recognized.")
         
-        if (  (xtct == t.VID_TAXII_XML_11 and not supports_taxii_11) or
-              (xtct == t.VID_TAXII_XML_10 and not supports_taxii_10)  ):
+        if (  (xtct == VID_TAXII_XML_11 and not supports_taxii_11) or
+              (xtct == VID_TAXII_XML_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to,
                                          'FAILURE',
                                          "The specified value of X-TAXII-Content-Type is not supported")
         
         # Validate the X-TAXII-Protocol header
         # TODO: Look into the service properties instead of assuming both are supported
-        if xtp not in (t.VID_TAXII_HTTP_10, t.VID_TAXII_HTTPS_10):
+        if xtp not in (VID_TAXII_HTTP_10, VID_TAXII_HTTPS_10):
             raise StatusMessageException(in_response_to,
                                          'FAILURE',
                                          "The specified value of X-TAXII-Protocol is not supported")
@@ -120,13 +126,16 @@ class MessageHandler(object):
         #Validate the X-TAXII-Accept header
         # TODO: Accept more "complex" accept headers (e.g., ones that specify more
         #       than one value)
-        if xta not in (t.VID_TAXII_XML_11, t.VID_TAXII_XML_10):
+        if xta not in (VID_TAXII_XML_11, VID_TAXII_XML_10, None):
             raise StatusMessageException(in_response_to,
                                          'FAILURE',
                                          "The specified value of X-TAXII-Accept is not recognized")
         
-        if (  (xta == t.VID_TAXII_XML_11 and not supports_taxii_11) or 
-              (xta == t.VID_TAXII_XML_10 and not supports_taxii_10)  ):
+        if not xta: #Pick whatever we want
+            xta = VID_TAXII_XML_11
+        
+        if (  (xta == VID_TAXII_XML_11 and not supports_taxii_11) or 
+              (xta == VID_TAXII_XML_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to,
                                          'FAILURE',
                                           "The specified value of X-TAXII-Accept is not supported")

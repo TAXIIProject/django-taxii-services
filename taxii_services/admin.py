@@ -96,10 +96,13 @@ class MessageHandlerAdmin(admin.ModelAdmin):
 #class CapabilityModuleAdmin(admin.ModelAdmin):
 #    pass
 
-def register_admins():
+def register_admins(admin_list=None):
     """
     This function registers all the model admins. This isn't done by default.
     """
+    
+    #TODO: Use the admin_list argument to register only specified admins or delete the argument
+    
     admin.site.register(models.CollectionManagementService, CollectionManagementServiceAdmin)
     admin.site.register(models.ContentBinding, ContentBindingAdmin)
     admin.site.register(models.ContentBlock, ContentBlockAdmin)

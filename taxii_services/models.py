@@ -15,6 +15,7 @@ import libtaxii.taxii_default_query as tdq
 from libtaxii import validation
 from libtaxii.common import generate_message_id
 from libtaxii.constants import *
+from exceptions import StatusMessageException
 
 MAX_NAME_LENGTH = 256
 
@@ -188,7 +189,7 @@ class _Handler(models.Model):
             self.version = handler_class.version
         except:
             print 'There was a problem getting the version! Does the class have a static version property?'
-            raise ValidationError('Could not read version from class. Does the class have a static version property?')
+            raise ValidationError('Could not read version from class (%s). Does the class have a static version property?' % handler_class)
         
         return handler_class#This is used by subclasses to extract subclass-specific attrs
     
@@ -220,8 +221,11 @@ class _TaxiiService(models.Model):
         """
         service_instances = []
         for pb in self.supported_protocol_bindings.all():
+            st = self.service_type
+            if st == SVC_COLLECTION_MANAGEMENT:
+                st = SVC_FEED_MANAGEMENT
             si = tm10.ServiceInstance(
-                         service_type = self.service_type,
+                         service_type = st,
                          services_version = VID_TAXII_SERVICES_11,
                          protocol_binding = pb.binding_id,
                          service_address = self.path,#TODO: Get the server's real path and prepend it here
@@ -292,6 +296,22 @@ class CollectionManagementService(_TaxiiService):
                 si.supported_query.append(sq.to_query_info_11())
         return service_instances
     
+    def to_feed_information_response_10(self, in_response_to):
+        """
+        Creates a tm10.FeedInformationResponse
+        based on this model
+        """
+        
+        # Create a stub FeedInformationResponse
+        fir = tm10.FeedInformationResponse(message_id = generate_message_id(), in_response_to=in_response_to)
+        
+        # For each collection that is advertised and enabled, create a Feed Information
+        # object and add it to the Feed Information Response
+        for collection in self.advertised_collections.filter(enabled=True):
+            fir.feed_informations.append(collection.to_feed_information_10())
+        
+        return fir
+    
     def to_collection_information_response_11(self, in_response_to):
         """
         Creates a tm11.CollectionInformationResponse 
@@ -303,7 +323,7 @@ class CollectionManagementService(_TaxiiService):
         
         # For each collection that is advertised and enabled, create a Collection Information
         # object and add it to the Collection Information Response
-        for collection in collection_management_service.advertised_collections.filter(enabled=True):
+        for collection in self.advertised_collections.filter(enabled=True):
             cir.collection_informations.append(collection.to_collection_information_11())
         
         return cir
@@ -525,6 +545,22 @@ class DataCollection(models.Model):
         #4
         return False
     
+    def to_feed_information_10(self):
+        """
+        """
+        fi = tm10.FeedInformation(
+                feed_name = self.name,
+                feed_description = self.description,
+                supported_contents = self.get_supported_content_10() or "TODO: use a different value here",
+                available = self.enabled,
+                push_methods = self.get_push_methods_10(),
+                polling_service_instances = self.get_polling_service_instances_10(),
+                subscription_methods = self.get_subscription_methods_10(),
+                # collection_volume, collection_type, and receiving_inbox_services can't be expressed in TAXII 1.0
+            )
+        
+        return fi
+    
     def to_collection_information_11(self):
         """
         Returns a tm11.CollectionInformation object
@@ -533,8 +569,8 @@ class DataCollection(models.Model):
         ci = tm11.CollectionInformation(
                 collection_name = self.name,
                 collection_description = self.description,
-                supported_contents = self.model_get_supported_content_10(),
-                available = True,
+                supported_contents = self.get_supported_content_11(),
+                available = self.enabled,
                 push_methods = self.get_push_methods_11(),
                 polling_service_instances = self.get_polling_service_instances_11(),
                 subscription_methods = self.get_subscription_methods_11(),
@@ -550,6 +586,7 @@ class DataCollection(models.Model):
         if self.accept_all_content:
             return_list = None # Indicates accept all
         else:
+            # TODO: Should this be a filter and only supply supported_content where subtype=None?
             for content in self.supported_content.all():
                 return_list.append(content.content_binding.binding_id)
         return return_list
@@ -575,19 +612,45 @@ class DataCollection(models.Model):
         
         return return_list
     
-    def get_push_methods_11(self):
-        #TODO: Implement this.
-        #This depends on the ability of taxii_services to push content
-        #and includes client capabilities
+    def get_push_methods_10(self):
+        """
+        TODO: Implement this
+        This depends on the ability of taxii_services to push content
+        and includes client capabilities
+        """
         return None
-
+    
+    def get_push_methods_11(self):
+        """
+        TODO: Implement this.
+        This depends on the ability of taxii_services to push content
+        and includes client capabilities
+        """
+        return None
+    
+    def get_polling_service_instances_10(self):
+        """
+        Returns a list of tm10.PollingServiceInstance objects
+        identifying the TAXII Poll Services that can be polled
+        for this Data Collection
+        """
+        poll_instances = []
+        poll_services = PollService.objects.filter(data_collections=self)
+        for poll_service in poll_services:
+            message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
+            for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
+                poll_instance = tm10.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path, message_bindings)
+                poll_instances.append(poll_instance)
+        
+        return poll_instances
+    
     def get_polling_service_instances_11(self):
         """
         Returns a list of tm11.PollingServiceInstance objects identifying the 
         TAXII Poll Services that can be polled for this Data Collection
         """
         poll_instances = []
-        poll_services = models.PollService.objects.filter(data_collections=self)
+        poll_services = PollService.objects.filter(data_collections=self)
         for poll_service in poll_services:
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
@@ -595,7 +658,23 @@ class DataCollection(models.Model):
                 poll_instances.append(poll_instance)
         
         return poll_instances
-
+    
+    def get_subscription_methods_10(self):
+        """
+        Returns a list of tm10.SubscriptionMethod objects identifying the TAXII
+        Collection Management Services handling subscriptions for this Data Collection
+        """
+        # TODO: Probably wrong, but here's the idea
+        subscription_methods = []
+        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self)
+        for collection_management_service in collection_management_services:
+            message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
+            for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
+                subscription_method = tm10.SubscriptionMethod(supported_protocol_binding.binding_id, collection_management_service.path, message_bindings)
+                subscription_methods.append(subscription_method)
+        
+        return subscription_methods
+    
     def get_subscription_methods_11(self):
         """
         Returns a list of tm11.SubscriptionMethod objects identifying the TAXII
@@ -603,7 +682,7 @@ class DataCollection(models.Model):
         """
         # TODO: Probably wrong, but here's the idea
         subscription_methods = []
-        collection_management_services = models.CollectionManagementService.objects.filter(advertised_collections=self)
+        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self)
         for collection_management_service in collection_management_services:
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
@@ -618,7 +697,7 @@ class DataCollection(models.Model):
         Inbox Services that accept content for this Data Collection.
         """
         receiving_inbox_services = []
-        inbox_services = models.InboxService.objects.filter(destination_collections=self)
+        inbox_services = InboxService.objects.filter(destination_collections=self)
         for inbox_service in inbox_services:
             message_bindings = [mb.binding_id for mb in inbox_service.supported_message_bindings.all()]
             for supported_protocol_binding in inbox_service.supported_protocol_bindings.all():
@@ -755,13 +834,13 @@ class InboxMessage(models.Model):
             inbox_message_db.partial_count = inbox_message.record_count.partial_count
 
         if inbox_message.subscription_information:
-            inbox_message_db.collection_name = inbox_message.subscription_information.collection_name
-            inbox_message_db.subscription_id = inbox_message.subscription_information.subscription_id
-            #TODO: These might be wrong. Need to test to verify
-            if inbox_message.subscription_information.exclusive_begin_timestamp_label:
-                inbox_message_db.exclusive_begin_timestamp_label = inbox_message.subscription_information.exclusive_begin_timestamp_label
-            if inbox_message.subscription_information.inclusive_end_timestamp_label:
-                inbox_message_db.inclusive_begin_timestamp_label = inbox_message.subscription_information.inclusive_begin_timestamp_label
+            si = inbox_message.subscription_information
+            inbox_message_db.collection_name = si.collection_name
+            inbox_message_db.subscription_id = si.subscription_id
+            if si.exclusive_begin_timestamp_label:
+                inbox_message_db.exclusive_begin_timestamp_label = si.exclusive_begin_timestamp_label
+            if si.inclusive_end_timestamp_label:
+                inbox_message_db.inclusive_end_timestamp_label = si.inclusive_end_timestamp_label
 
         if received_via:
             inbox_message_db.received_via = received_via # This is an inbox service
@@ -829,17 +908,17 @@ class InboxService(_TaxiiService):
         StatusMessageException.
         """
         num = len(name_list)
-        if self.destination_collection_status == REQUIRED and num == 0:
+        if self.destination_collection_status == REQUIRED[0] and num == 0:
             raise StatusMessageException(in_response_to, 
-                                         DESTINATION_COLLECTION_ERROR, 
+                                         ST_DESTINATION_COLLECTION_ERROR, 
                                          'A Destination_Collection_Name is required and none were specified', 
-                                         {SD_ACCEPTABLE_DESTINATION, [dc.name for dc in self.destination_collections]})
+                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in self.destination_collections.all()]})
         
-        if self.destination_collection_status == PROHIBITED and num > 0:
+        if self.destination_collection_status == PROHIBITED[0] and num > 0:
             raise StatusMessageException(in_response_to, 
-                                         DESTINATION_COLLECTION_ERROR, 
+                                         ST_DESTINATION_COLLECTION_ERROR, 
                                          'Destination_Collection_Names are prohibited on this Inbox Service', 
-                                         {SD_ACCEPTABLE_DESTINATION, [dc.name for dc in self.destination_collections]})
+                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in self.destination_collections.all()]})
         
         collections = []
         for name in name_list:
@@ -848,7 +927,7 @@ class InboxService(_TaxiiService):
                 collections.append(collection)
             except:
                 raise StatusMessageException(in_response_to,
-                                             NOT_FOUND,
+                                             ST_NOT_FOUND,
                                              'The Data Collection was not found',
                                              {SD_ITEM: name})
         
