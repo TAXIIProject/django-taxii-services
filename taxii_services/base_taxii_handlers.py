@@ -8,8 +8,28 @@ import libtaxii as t
 
 class MessageHandler(object):
     """
-    Blah blah blah
-    Extend this for message exchange support
+    MessageHandler is the base class for TAXII Message
+    Handlers.
+
+    Child classes MUST specify a value for MessageHandler.supported_request_messages,
+    and MUST implement the handle_message function.
+
+    e.g.,
+
+    import libtaxii.messages_11 as tm11
+
+    MessageHandlerChild(MessageHandler):
+        supported_request_messages = tm11.DiscoveryRequest
+
+        @classmethod
+        def handle_message(cls, service, taxii_message, django_request):
+            dr = tm11.DiscoveryResponse( ... )
+            # Code to handle the request against the service would go here
+            return dr
+
+    Optionally,register the MessageHandler child:
+    import taxii_services.management as m
+    m.register_message_handler(MessageHandlerChild, name='MessageHandlerChild')
     """
     
     #: Identify the list of supported request messages
@@ -23,6 +43,11 @@ class MessageHandler(object):
     
     @classmethod
     def get_supported_request_messages(cls):
+        """
+        Returns:
+            The supported_request_messages property or raises a ValueError
+            if it isn't set.
+        """
         if not cls.supported_request_messages:
             raise ValueError('The variable \'supported_request_messages\' has not been defined by the subclass!')
         return cls.supported_request_messages
@@ -31,7 +56,22 @@ class MessageHandler(object):
     def validate_headers(cls, django_request, in_response_to='0'):
         """
         Validates the headers of a django request
-        against the properties of this MessageHandler
+        based on the properties of this MessageHandler.
+
+        Specifically, the supported_request_messages property is used to
+        infer which version(s) of TAXII this message handler supports and
+        from there infer which headers are valid/invalid.
+
+        Arguments:
+            django_request - The Django request to validate
+            in_response_to - If a StatusMessageException is raised as a result
+                             of header validation (e.g., the headers are invalid),
+                             in_response_to will be used as the in_response_to
+                             field of the Status Message.
+
+        returns:
+            None if all headers are valid. Raises a StatusMessageException
+            otherwise.
         """
         
         # First, make sure required headers exist
@@ -82,45 +122,45 @@ class MessageHandler(object):
         # Validate the X-TAXII-Services header
         if svcs not in (VID_TAXII_SERVICES_11, VID_TAXII_SERVICES_10):
             raise StatusMessageException(in_response_to, 
-                                         'FAILURE', 
+                                         ST_FAILURE, 
                                          "The value of X-TAXII-Services was not recognized.")
         
         if (  (svcs == VID_TAXII_SERVICES_11 and not supports_taxii_11) or 
               (svcs == VID_TAXII_SERVICES_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to, 
-                                         'FAILURE', 
+                                         ST_FAILURE, 
                                          "The specified value of X-TAXII-Services (%s) \
                                          is not supported by this TAXII Service." % svcs)
         
         # Validate the Content-Type header
         if ct.lower() != 'application/xml':
             raise StatusMessageException(in_response_to, 
-                                         'FAILURE', 
+                                         ST_FAILURE, 
                                          "The specified value of Content-Type is not supported.")
         
         # Validate the X-TAXII-Content-Type header
         if xtct not in (VID_TAXII_XML_11, VID_TAXII_XML_10):
             raise StatusMessageException(in_response_to, 
-                                         'FAILURE', 
+                                         ST_FAILURE, 
                                          "The value of X-TAXII-Content-Type was not recognized.")
         
         if (  (xtct == VID_TAXII_XML_11 and not supports_taxii_11) or
               (xtct == VID_TAXII_XML_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to,
-                                         'FAILURE',
+                                         ST_FAILURE,
                                          "The specified value of X-TAXII-Content-Type is not supported")
         
         # Validate the X-TAXII-Protocol header
         # TODO: Look into the service properties instead of assuming both are supported
         if xtp not in (VID_TAXII_HTTP_10, VID_TAXII_HTTPS_10):
             raise StatusMessageException(in_response_to,
-                                         'FAILURE',
+                                         ST_FAILURE,
                                          "The specified value of X-TAXII-Protocol is not supported")
         
         #Validate the accept header
         if accept and accept.lower() != 'application/xml':
             raise StatusMessageException(in_response_to,
-                                         'FAILURE',
+                                         ST_FAILURE,
                                          "The specified value of Accept is not supported")
         
         #Validate the X-TAXII-Accept header
@@ -128,16 +168,16 @@ class MessageHandler(object):
         #       than one value)
         if xta not in (VID_TAXII_XML_11, VID_TAXII_XML_10, None):
             raise StatusMessageException(in_response_to,
-                                         'FAILURE',
+                                         ST_FAILURE,
                                          "The specified value of X-TAXII-Accept is not recognized")
         
-        if not xta: #Pick whatever we want
+        if not xta: #X-TAXII-Accept not specified, we can pick whatever we want
             xta = VID_TAXII_XML_11
         
         if (  (xta == VID_TAXII_XML_11 and not supports_taxii_11) or 
               (xta == VID_TAXII_XML_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to,
-                                         'FAILURE',
+                                         ST_FAILURE,
                                           "The specified value of X-TAXII-Accept is not supported")
         
         #Headers are valid
@@ -145,6 +185,14 @@ class MessageHandler(object):
     
     @classmethod
     def validate_message_is_supported(cls, taxii_message):
+        """
+        Checks whether the TAXII Message is supported by this Message Handler.
+        Arguments:
+            taxii_message - A libtaxii.messages_11 or libtaxii.messages_10 taxii message
+
+        Returns:
+            None if the message is supported, raises a StatusMessageException otherwise.
+        """
         if taxii_message.__class__ not in cls.get_supported_request_messages():
             raise StatusMessageException(taxii_message.message_id,
                                          ST_FAILURE,
@@ -154,16 +202,50 @@ class MessageHandler(object):
     @classmethod
     def handle_message(cls, service, taxii_message, django_request):
         """
-        Takes a service model, TAXII Message, and django request
-        
-        MUST return a tm11 TAXII Message
+        This method is implemented by child Message Handlers to handle 
+        TAXII Service invocations.
+
+        Arguments:
+            service - A TAXII Service model object representing the service being invoked
+            taxii_message - A libtaxii TAXII message representing the request message
+            django_request - The django request associated with the taxii_message
+
+        Returns:
+            A libtaxii TAXII Message containing the response. May raise a StatusMessageException.
         """
         raise NotImplementedError()
 
 class DefaultQueryHandler(object):
     """
-    Blah blah blah.
-    Extend this for query support
+    DefaultQueryHandler is the base class for TAXII Query
+    Handlers.
+
+    Child classes MUST specify a value for DefaultQueryHandler.supported_targeting_expression,
+    and DefaultQueryHandler.supported_capability_modules
+    and MUST implement the execute_query function.
+
+    e.g.,
+
+    import libtaxii.messages_11 as tm11
+    import libtaxii.taxii_default_query as tdq
+    from libtaxii.constants import *
+
+    QueryHandlerChild(QueryHandler):
+        supported_targeting_expression = CB_STIX_XML_111
+        supported_capability_modules = [tdq.CM_CORE]
+
+        @classmethod
+        def execute_query(cls, content_block_list, query):
+            matching_content_blocks = []
+            for cb in content_block_list:
+                matches = # code to execute the query
+                if matches:
+                matching_content_blocks.append(cb)
+            return matching_content_blocks
+
+    Optionally,register the DefaultQueryHandler child:
+    import taxii_services.management as m
+    m.register_query_handler(QueryHandlerChild, name='QueryHandlerChild')
     """
     
     supported_targeting_expression = None
@@ -173,10 +255,8 @@ class DefaultQueryHandler(object):
     @classmethod
     def get_supported_capability_modules(cls):
         """
-        Returns a list of strings indicating the Capability Modules this 
-        class supports. Pulls from the 
-        supported_capability_modules class variable set by the 
-        child class
+        Returns:
+            A list of TAXII Default Query Capability Modules that this QueryHandler supports.
         """
         if not cls.supported_capability_modules:
             raise ValueError('The variable \'supported_capability_modules\' has not been defined by the subclass!')
@@ -185,10 +265,8 @@ class DefaultQueryHandler(object):
     @classmethod
     def get_supported_targeting_expression(cls):
         """
-        Returns a string indicating the targeting expression this 
-        class supports. Pulls from the 
-        supported_targeting_expression class variable set by the 
-        child class
+        Returns:
+            A string indicating the Targeting Expression this QueryHandler supports.
         """
         if not cls.supported_targeting_expression:
             raise ValueError('The variable \'supported_targeting_expression\' has not been defined by the subclass!')
@@ -201,34 +279,45 @@ class DefaultQueryHandler(object):
     @staticmethod
     def is_scope_supported(scope):
         """
-        Given a DefaultQueryScope object, return True
-        if that scope is supported or False if it is not.
+        This method MUST be implemented by child classes.
+
+        Arguments:
+            scope (str) - A string indicating the scope of a query.
+
+        Returns:
+            True or False, indicating whether scope is supported.
         """
         raise NotImplementedError()
     
     @classmethod
     def execute_query(cls, content_block_list, query):
         """
-        Given a query and a list of tm11.ContentBlock objects,
-        return a list of tm11.ContentBlock objects that
-        match the query
+        This method MUST be implemented by child classes.
+
+        Arguments:
+            content_block_list - an iterable of ContentBlock model objects.
+            query - The query to be executed
+
+        Returns:
+            A list of ContentBlock model objects that match the query, 
+            or raises a StatusMessageException
         """        
         raise NotImplementedError()
 
 class BaseXmlQueryHandler(DefaultQueryHandler):
     """
-    Extends the DefaultQueryHandler for general XML 
+    Extends the DefaultQueryHandler for general XML / XPath
     processing. This class still needs to be extended
     to support specific XML formats (e.g., specific
     versions of STIX).
-    
+
     There is a generate_xml_query_extension.py script 
     to help with extending this class
-    
+
     Note that correctly specifying the mapping_dict is
     a critical aspect of extending this class. The mapping_dict
     should adhere to the following format:
-    
+
     { 'root_context':
         {'children':
             '<xml_root_element_name>': 
@@ -263,6 +352,14 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
         
     @classmethod
     def is_scope_supported(cls, scope):
+        """
+        Overrides the parent class' method.
+
+        If the scope can be turned into an XPath, the scope is supported.
+
+        Note: This function may change in the future (specifically, the returning 
+        a tuple part)
+        """
         try:
             cls.get_xpath_parts(scope)
         except ValueError as e:
@@ -275,6 +372,15 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
         """
         Evaluates the criteria in a query. Note that criteria can have
         child criteria (aka recursion) and child criterion.
+
+        Arguments:
+            content_etree - an lxml etree to evaluate
+            criteria - the criteria to evaluate against the etree
+
+        Returns: 
+            True or False, indicating whether the content_etree 
+            matches the criteria
+        
         """
         for criteria in criteria.criteria:
             value = cls.evaluate_criteria(content_etree, criteria)
@@ -299,16 +405,29 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
     
     @classmethod
     def evaluate_criterion(cls, content_etree, criterion):
+        """
+        Evaluates the criterion in a query.
+
+        Arguments:
+            content_etree - an lxml etree to evaluate
+            criterion - the criterion to evaluate against the etree
+
+        Returns: 
+            True or False, indicating whether the content_etree 
+            matches the criterion
+        """
         
         if criterion.test.capability_id not in cls.get_supported_capability_modules():
-            #TODO: Should be a Status Message
+            #TODO: Should be a StatusMessageException
             raise Exception("Capability module not supported")
         
         xpath, nsmap = cls.criterion_get_xpath(criterion)
-        content_etree.xpath(xpath, namespaces = nsmap)
-        if matches in (True, False):
+        matches = content_etree.xpath(xpath, namespaces = nsmap)
+        # XPath results can be a boolean (True, False) or
+        # a NodeSet
+        if matches in (True, False): # The result is boolean, take it literally
             result = matches
-        else:
+        else: # The result is a NodeSet. The Criterion is True iff there are >0 resulting nodes
             result = len(matches) > 0
         
         if criterion.negate:
@@ -321,9 +440,15 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
         Given a Targeting Expression, return a list of 
         XPath parts (which can be used to construct the 
         beginning part of an XPath) and nsmap for use in an XPath.
-        
+
         The last item in the list might be a wildcard, which
         will need to be handled by the calling function
+
+        Arguments:
+            target (str) - A string containing the Target of a Criterion
+
+        Returns: 
+            A tuple containing a list of XPath Parts and an nsmap dict
         """
         
         nsmap = {}
@@ -356,6 +481,14 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
         """
         Get the clause to append to the end of an XPath, 
         based on the operand and test
+
+        Arguments:
+            operand (str) - The operand of the XPath expression (e.g., the left hand side (x) of x = y)
+            test - A TAXII Default Query Test object
+
+        Returns: 
+            A string containing the append part of the xpath
+        
         """
         v = None
         if criterion.test.parameters and 'value' in criterion.test.parameters:
@@ -408,6 +541,7 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
             elif params['case_sensitive'] == 'true':
                 append = '[contains(%s, \'%s\')]' % (operand, v)
         else:
+            #TODO: Should be a statusmessageexception
             raise Exception('Invalid relationship: %s' % relationship)
         
         return append
@@ -422,8 +556,12 @@ class BaseXmlQueryHandler(DefaultQueryHandler):
         Given a criterion, translate it into an XPath that can be 
         evaluated against an XML instance document to determine 
         whether the document matches the criterion
-        
-        Returns an XPath and an nsmap to use with the XPath
+
+        Arguments:
+            criterion - a TAXII Default Query criterion object
+
+        Returns:
+            an XPath and an nsmap to use with the XPath
         """
         if criterion.relationship not in cls.supported_relationships:
             raise Exception("Relationship not supported")
