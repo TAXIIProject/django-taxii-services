@@ -34,7 +34,7 @@ def register_message_handler(message_handler, name, retry=True):
     except DatabaseError as dbe: #Assume this is because DB isn't set up yet
         if retry:
             #print "failed! %s" % dbe
-            message_handlers_to_retry.append(  (query_handler, name)  )
+            message_handlers_to_retry.append(  (message_handler, name)  )
         else:
             raise
 
