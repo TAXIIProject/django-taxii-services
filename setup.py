@@ -20,7 +20,7 @@ if sys.version_info < (2, 6):
 
 install_requires = [''] #TODO: Doesn't require anything yet
 
-with open("README.md") as f:
+with open("README.rst") as f:
     long_description = f.read()
 
 extras_require = {
