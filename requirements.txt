@@ -1,4 +1,4 @@
-Django==1.5.1
+Django==1.7.0
 libtaxii==1.1.102
 lxml==3.2.1
 python-dateutil==2.1
