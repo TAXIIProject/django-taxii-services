@@ -17,6 +17,8 @@ from django.views.decorators.csrf import csrf_exempt
 from lxml.etree import XMLSyntaxError
 from StringIO import StringIO
 import traceback
+import sys
+from importlib import import_module
 
 @csrf_exempt
 def service_router(request, path, do_validate=True):
@@ -56,7 +58,16 @@ def service_router(request, path, do_validate=True):
     
     service = handlers.get_service_from_path(request.path)
     #handler_class = handlers.get_message_handler(service, taxii_message)
-    handler_class = service.get_message_handler(taxii_message)
+    handler = service.get_message_handler(taxii_message)
+    module_name, class_name = handler.handler.rsplit('.', 1)
+    
+    try:
+        module = import_module(module_name)
+        handler_class = getattr(module, class_name)
+    except Exception as e:
+        type, value, tb = sys.exc_info()
+        raise type, ("Error importing handler: %s" % handler.handler, type, value), tb
+   
     handler_class.validate_headers(request, taxii_message.message_id)
     handler_class.validate_message_is_supported(taxii_message)
     
