@@ -7,25 +7,6 @@ from libtaxii.constants import *
 import datetime
 from dateutil.tz import tzutc
 
-class SupportInfo(object):
-    """
-    An object that contains information related to 
-    whether something is supported or not.
-    
-    This class has two properties:
-    is_supported (bool) - Indicates whether the thing is supported
-    message (str) - A message about why the thing is or is not supported. Usually used to indicate why something isn't supported.
-    """
-    
-    def __init__(self, is_supported, message=None):
-        """
-        Arguments:
-            is_supported (bool) - Indicates whether the thing is supported
-            message (str) - A message about why the thing is or is not supported **optional**.  Usually used to indicate why something isn't supported.
-        """
-        self.is_supported = is_supported
-        self.message = message
-
 class PollRequestProperties(object):
     """
     Holds a bunch of different items
