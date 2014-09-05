@@ -8,7 +8,7 @@ from libtaxii.constants import *
 
 from django.http import HttpResponseServerError, HttpResponse
 import logging
-import settings
+from django.conf import settings
 
 class StatusMessageExceptionMiddleware(object):
     """

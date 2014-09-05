@@ -6,7 +6,7 @@ from .exceptions import StatusMessageException
 import libtaxii as t
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
-import settings
+from django.conf import settings
 
 class MessageHandler(object):
     """
