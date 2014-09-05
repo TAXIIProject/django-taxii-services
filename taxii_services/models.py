@@ -120,6 +120,25 @@ ALLOWED_SCOPE = ('ALLOWED','Allowed')
 #: Tuple of scope choices
 SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
 
+class SupportInfo(object):
+    """
+    An object that contains information related to 
+    whether something is supported or not.
+    
+    This class has two properties:
+    is_supported (bool) - Indicates whether the thing is supported
+    message (str) - A message about why the thing is or is not supported. Usually used to indicate why something isn't supported.
+    """
+    
+    def __init__(self, is_supported, message=None):
+        """
+        Arguments:
+            is_supported (bool) - Indicates whether the thing is supported
+            message (str) - A message about why the thing is or is not supported **optional**.  Usually used to indicate why something isn't supported.
+        """
+        self.is_supported = is_supported
+        self.message = message
+
 class _BindingBase(models.Model):
     """
     Base class for Bindings (e.g., Protocol Binding, Content Binding, Message Binding)
@@ -612,22 +631,22 @@ class DataCollection(models.Model):
         
         #1
         if self.accept_all_content:
-            return True
+            return SupportInfo(True)
         
         #2
         if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = None)) > 0:
-            return True
+            return SupportInfo(True)
         
         #2a (e.g., subtype = None so #3 would end up being the same check as #2)
         if not cbas.subtype:#No further checking can be done 
-            return False
+            return SupportInfo(False)
         
         #3
         if len(self.supported_content.filter(content_binding = cbas.content_binding, subtype = cbas.subtype)) > 0:
-            return True
+            return SupportInfo(True)
         
         #4
-        return False
+        return SupportInfo(False)
     
     def to_feed_information_10(self):
         """
@@ -986,7 +1005,7 @@ class InboxService(_TaxiiService):
         """
         
         #1
-        if obj.accept_all_content:
+        if self.accept_all_content:
             return True
         
         #2
