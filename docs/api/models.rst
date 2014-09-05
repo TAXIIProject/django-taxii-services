@@ -1,5 +1,5 @@
 :mod:`taxii_services.models` Module
-==================================
+===================================
 
 .. automodule:: taxii_services.models
     :members:
