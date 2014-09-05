@@ -3,16 +3,19 @@
 
 #This only contains basic views for basic TAXII Services
 
-from StringIO import StringIO
-from django.views.decorators.csrf import csrf_exempt
+from .exceptions import StatusMessageException
+from .utils import request_utils, response_utils
 import handlers
-from utils import request_utils, response_utils
-from exceptions import StatusMessageException
-from libtaxii.constants import *
-from libtaxii.validation import SchemaValidator
+
 import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
+from libtaxii.constants import *
+from libtaxii.validation import SchemaValidator
+
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from lxml.etree import XMLSyntaxError
+from StringIO import StringIO
 import traceback
 
 @csrf_exempt
@@ -26,10 +29,11 @@ def service_router(request, path, do_validate=True):
         raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request method was not POST!')
     
     xtct = request.META.get('HTTP_X_TAXII_CONTENT_TYPE', None)
+    # TODO: Map/dict is probably a better use than if/else
     if xtct == VID_TAXII_XML_10:
         sv = SchemaValidator(SchemaValidator.TAXII_10_SCHEMA)
         get_message_from_xml = tm10.get_message_from_xml
-    else: # assume xtct == VID_TAXII_XML_11, since the headers have been validated
+    else: # assume xtct == VID_TAXII_XML_11, since the headers have been validated #TODO: This statement is not true
         sv = SchemaValidator(SchemaValidator.TAXII_11_SCHEMA)
         get_message_from_xml = tm11.get_message_from_xml
     
@@ -41,10 +45,18 @@ def service_router(request, path, do_validate=True):
         except XMLSyntaxError as e:
             raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not well-formed XML: %s' % str(e) )
     
-    taxii_message = get_message_from_xml(request.body)
+    try:
+        taxii_message = get_message_from_xml(request.body)
+    except tm11.UnsupportedQueryException as e:
+        # TODO: Is it possible to give the real message id?
+        # TODO: Is it possible to indicate which query aspects are supported?
+        #       This might require a change in how libtaxii works
+        raise StatusMessageException('0',
+                                     ST_UNSUPPORTED_QUERY)
     
     service = handlers.get_service_from_path(request.path)
-    handler_class = handlers.get_message_handler(service, taxii_message)
+    #handler_class = handlers.get_message_handler(service, taxii_message)
+    handler_class = service.get_message_handler(taxii_message)
     handler_class.validate_headers(request, taxii_message.message_id)
     handler_class.validate_message_is_supported(taxii_message)
     
@@ -54,12 +66,11 @@ def service_router(request, path, do_validate=True):
         raise # The handler_class has intentionally raised this
     except Exception as e: # Something else happened
         msg = "There was a failure while executing the message handler"
-        if handler_class.DEBUG: #Add the stacktrace
+        if settings.DEBUG: #Add the stacktrace
             msg += "\r\n" + traceback.format_exc()
         
         raise StatusMessageException(taxii_message.message_id,
                                      ST_FAILURE,
-                                     "There was a failure while executing the message handler: %s" % \
                                      msg )
     
     try:
@@ -67,7 +78,7 @@ def service_router(request, path, do_validate=True):
     except AttributeError as e:
         msg = "The message handler (%s) did not return a TAXII Message!" % \
               handler_class
-        if handler_class.DEBUG:
+        if settings.DEBUG:
             msg += (  "\r\n The returned value was: %s (class=%s)" % \
                      (response_message, response_message.__class__.__name__)  )
         

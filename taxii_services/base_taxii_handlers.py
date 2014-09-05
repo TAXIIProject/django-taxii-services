@@ -1,10 +1,12 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from exceptions import StatusMessageException
-from libtaxii.constants import *
-import libtaxii.taxii_default_query as tdq
+from .exceptions import StatusMessageException
+
 import libtaxii as t
+import libtaxii.taxii_default_query as tdq
+from libtaxii.constants import *
+import settings
 
 class MessageHandler(object):
     """
@@ -36,11 +38,7 @@ class MessageHandler(object):
     #: This MUST be a list (well, iterable) defined by the extending class
     #: e.g., [tm11.InboxMessage]
     supported_request_messages = None
-    
-    #: If DEBUG is set to true by the child class, django-taxii-services will print more information
-    #: when the message handler fails
-    DEBUG = False
-    
+        
     @classmethod
     def get_supported_request_messages(cls):
         """
@@ -77,9 +75,12 @@ class MessageHandler(object):
         # First, make sure required headers exist
         svcs = django_request.META.get('HTTP_X_TAXII_SERVICES', None)
         if not svcs:
+            msg =  "The X-TAXII-Services header was not specified"
+            if settings.DEBUG:
+                msg += "\r\nHeaders: %s " % str(django_request.META)
             raise StatusMessageException(in_response_to, 
                                          ST_FAILURE, 
-                                         "The X-TAXII-Services header was not specified")
+                                         msg)
         
         ct = django_request.META.get('CONTENT_TYPE', None)
         if not ct:
@@ -114,8 +115,8 @@ class MessageHandler(object):
             elif message.__module__ == 'libtaxii.messages_10':
                 supports_taxii_10 = True
             else:
-                raise ValueError("The variable \'supported_request_messages\' \
-                                  contained a non-libtaxii message module: %s" % \
+                raise ValueError( ("The variable \'supported_request_messages\' "
+                                  "contained a non-libtaxii message module: %s") % \
                                   message.__module__)
         
         # Next, determine whether the MessageHandler supports the headers
@@ -129,8 +130,8 @@ class MessageHandler(object):
               (svcs == VID_TAXII_SERVICES_10 and not supports_taxii_10)  ):
             raise StatusMessageException(in_response_to, 
                                          ST_FAILURE, 
-                                         "The specified value of X-TAXII-Services (%s) \
-                                         is not supported by this TAXII Service." % svcs)
+                                         ("The specified value of X-TAXII-Services (%s) "
+                                         "is not supported by this TAXII Service.") % svcs)
         
         # Validate the Content-Type header
         if ct.lower() != 'application/xml':
@@ -215,13 +216,13 @@ class MessageHandler(object):
         """
         raise NotImplementedError()
 
-class DefaultQueryHandler(object):
+class QueryHandler(object):
     """
-    DefaultQueryHandler is the base class for TAXII Query
+    QueryHandler is the base class for TAXII Query
     Handlers.
 
-    Child classes MUST specify a value for DefaultQueryHandler.supported_targeting_expression,
-    and DefaultQueryHandler.supported_capability_modules
+    Child classes MUST specify a value for QueryHandler.supported_targeting_expression,
+    and QueryHandler.supported_capability_modules
     and MUST implement the execute_query function.
 
     e.g.,
@@ -243,7 +244,7 @@ class DefaultQueryHandler(object):
                 matching_content_blocks.append(cb)
             return matching_content_blocks
 
-    Optionally,register the DefaultQueryHandler child:
+    Optionally,register the QueryHandler child:
     import taxii_services.management as m
     m.register_query_handler(QueryHandlerChild, name='QueryHandlerChild')
     """
@@ -277,6 +278,10 @@ class DefaultQueryHandler(object):
         pass#TODO: is this worthwhile?
     
     @staticmethod
+    def is_target_supported(target):
+        pass
+    
+    @staticmethod
     def is_scope_supported(scope):
         """
         This method MUST be implemented by child classes.
@@ -285,10 +290,25 @@ class DefaultQueryHandler(object):
             scope (str) - A string indicating the scope of a query.
 
         Returns:
-            True or False, indicating whether scope is supported.
+            A taxii_services.handlers.SupportInfo object indicating support.
         """
         raise NotImplementedError()
     
+    @classmethod
+    def update_params_dict(params_dict, poll_request):
+        """
+        This is a hook that allows a query handler to modify the params_dict
+        before being passed into the database.
+
+        The default behavior of this method is to do nothing.
+        
+        Arguments:
+            params_dict - a dict containing the results of PollRequest11Handler.get_params_dict_11()
+            poll_request - a poll request
+        """
+        return params_dict
+    
+    # TODO: What about people who have their own data store? ContentBlock model won't work for them.
     @classmethod
     def execute_query(cls, content_block_list, query):
         """
@@ -304,9 +324,9 @@ class DefaultQueryHandler(object):
         """        
         raise NotImplementedError()
 
-class BaseXmlQueryHandler(DefaultQueryHandler):
+class BaseXmlQueryHandler(QueryHandler):
     """
-    Extends the DefaultQueryHandler for general XML / XPath
+    Extends the QueryHandler for general XML / XPath
     processing. This class still needs to be extended
     to support specific XML formats (e.g., specific
     versions of STIX).

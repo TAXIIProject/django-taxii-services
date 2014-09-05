@@ -1,8 +1,9 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.contrib import admin
 import models
+
+from django.contrib import admin
 
 class DataCollectionAdmin(admin.ModelAdmin):
     filter_vertical = ("supported_content", )
@@ -81,14 +82,18 @@ class ResultSetAdmin(admin.ModelAdmin):
 #class TargetingExpressionAdmin(admin.ModelAdmin):
     #pass
 
+class QueryScopeInline(admin.TabularInline):
+    model = models.QueryScope
+
 class SupportedQueryAdmin(admin.ModelAdmin):
+    inlines = [QueryScopeInline]
     pass
 
 class QueryHandlerAdmin(admin.ModelAdmin):
     list_display = ['name', 'description', 'module_name', 'class_name', 'targeting_expression_id', 'capability_modules', 'version']
 
-class QueryScopeAdmin(admin.ModelAdmin):
-    pass
+#class QueryScopeAdmin(admin.ModelAdmin):
+#    pass
 
 class MessageHandlerAdmin(admin.ModelAdmin):
     list_display = ['name', 'description', 'module_name', 'class_name', 'supported_messages', 'version']
@@ -124,4 +129,4 @@ def register_admins(admin_list=None):
     #admin.site.register(models.TargetingExpression, TargetingExpressionAdmin)
     admin.site.register(models.SupportedQuery, SupportedQueryAdmin)
     admin.site.register(models.QueryHandler, QueryHandlerAdmin)
-    admin.site.register(models.QueryScope, QueryScopeAdmin)
+    #admin.site.register(models.QueryScope, QueryScopeAdmin)

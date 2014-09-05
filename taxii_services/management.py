@@ -1,14 +1,15 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from .models import MessageHandler, QueryHandler
+
 from django.db.models.signals import post_syncdb
 from django.db.utils import DatabaseError
-from .models import MessageHandler, QueryHandler
 
 query_handlers_to_retry = []
 message_handlers_to_retry = []
 
-def register_message_handler(message_handler, name, retry=True):
+def register_message_handler(message_handler, name=None, retry=True):
     """
     Attempts to create a MessageHandler model for the 
     specified message_handler.
@@ -23,14 +24,15 @@ def register_message_handler(message_handler, name, retry=True):
         retry (bool) - If registration fails, whether or not to retry later
     """
     try:
-        #print "trying to register mh %s, retry=%s" % (message_handler, retry)
         module = message_handler.__module__
         class_ = message_handler.__name__
+        if not name:
+            name = str(class_)
         handler_string = module + "." + class_
-        qh, created = MessageHandler.objects.get_or_create(handler = handler_string, name=name)
-        qh.clean()
-        qh.save()
-        #print "success!"
+        mh, created = MessageHandler.objects.get_or_create(handler = handler_string)
+        mh.name = name
+        mh.clean()
+        mh.save()
     except DatabaseError as dbe: #Assume this is because DB isn't set up yet
         if retry:
             #print "failed! %s" % dbe
@@ -38,7 +40,7 @@ def register_message_handler(message_handler, name, retry=True):
         else:
             raise
 
-def register_query_handler(query_handler, name, retry=True):
+def register_query_handler(query_handler, name=None, retry=True):
     """
     Attempts to create a QueryHandler model for the 
     specified query_handler.
@@ -56,8 +58,11 @@ def register_query_handler(query_handler, name, retry=True):
         #print "trying to register qh %s, retry=%s" % (query_handler, retry)
         module = query_handler.__module__
         class_ = query_handler.__name__
+        if not name:
+            name = str(class_)
         handler_string = module + "." + class_
-        qh, created = QueryHandler.objects.get_or_create(handler = handler_string, name=name)
+        qh, created = QueryHandler.objects.get_or_create(handler = handler_string)
+        qh.name = name
         qh.clean()
         qh.save()
         #print "success!"

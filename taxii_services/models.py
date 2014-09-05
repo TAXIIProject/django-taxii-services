@@ -1,13 +1,8 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.db import models
-from django.db.models.signals import post_save
-from django.core.exceptions import ObjectDoesNotExist
-from importlib import import_module
-import sys
-from itertools import chain
-from django.core.exceptions import ValidationError
+
+from .exceptions import StatusMessageException
 
 import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
@@ -15,7 +10,14 @@ import libtaxii.taxii_default_query as tdq
 from libtaxii import validation
 from libtaxii.common import generate_message_id
 from libtaxii.constants import *
-from exceptions import StatusMessageException
+
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.db.models.signals import post_save
+from django.core.exceptions import ObjectDoesNotExist
+from importlib import import_module
+from itertools import chain
+import sys
 
 MAX_NAME_LENGTH = 256
 
@@ -111,6 +113,13 @@ SUBS_BOTH = ('BOTH', 'Both')
 #: Tuple of all subscription delivery methods
 DELIVERY_CHOICES = (SUBS_POLL, SUBS_PUSH, SUBS_BOTH)
 
+#: Preferred Scope
+PREFERRED_SCOPE = ('PREFERRED','Preferred')
+#: Allowed Scope
+ALLOWED_SCOPE = ('ALLOWED','Allowed')
+#: Tuple of scope choices
+SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
+
 class _BindingBase(models.Model):
     """
     Base class for Bindings (e.g., Protocol Binding, Content Binding, Message Binding)
@@ -186,6 +195,7 @@ class _Handler(models.Model):
             raise ValidationError('Class Description could not be found. Attempted %s.__doc__.strip()' % class_name)
         
         try:
+            # TODO: Check the version on load
             self.version = handler_class.version
         except:
             print 'There was a problem getting the version! Does the class have a static version property?'
@@ -255,6 +265,16 @@ class _TaxiiService(models.Model):
             service_instances.append(si)
         return service_instances
     
+    def get_message_handler(self, taxii_message):
+        """
+        Given a taxii_message, return the correct
+        MessageHandler model object or raise a 
+        StatusMessage
+        
+        Must be implemented by subclasses.
+        """
+        raise NotImplementedError()
+    
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.path)
     
@@ -263,7 +283,8 @@ class _TaxiiService(models.Model):
 
 class CollectionManagementService(_TaxiiService):
     """
-    Model for Collection Management Service
+    Model for Collection Management Service. This is also used
+    for Feed Management Service.
     """
     service_type = SVC_COLLECTION_MANAGEMENT
     collection_information_handler = models.ForeignKey('MessageHandler', 
@@ -282,6 +303,20 @@ class CollectionManagementService(_TaxiiService):
     #      service processes subscriptions for. Is that right?
     advertised_collections = models.ManyToManyField('DataCollection', blank=True, null=True)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    
+    def get_message_handler(self, taxii_message):
+        if taxii_message.message_type == MSG_COLLECTION_INFORMATION_REQUEST:
+            return self.collection_information_handler
+        elif taxii_message.message_type == MSG_FEED_INFORMATION_REQUEST:
+            return self.collection_information_handler
+        elif taxii_message.message_type == MSG_MANAGE_COLLECTION_SUBSCRIPTION_REQUEST:
+            return self.subscription_management_handler
+        elif taxii_message.message_type == MSG_MANAGE_FEED_SUBSCRIPTION_REQUEST:
+            return self.subscription_management_handler
+        
+        raise StatusMessageException(taxii_message.message_id,
+                                     ST_FAILURE,
+                                     message="Message not supported by this service")
     
     def clean(self):
         if (  not self.collection_information_handler and
@@ -349,6 +384,11 @@ class ContentBindingAndSubtype(models.Model):
     subtype = models.ForeignKey('ContentBindingSubtype', blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def to_content_binding_11(self):
+        """
+        """
+        pass
     
     def __unicode__(self):
         uni = "%s > " % self.content_binding.name
@@ -513,6 +553,50 @@ class DataCollection(models.Model):
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def get_binding_intersection_11(self, binding_list, in_response_to):
+        """
+        Arguments:
+            binding_list - a list of tm11.ContentBinding objects
+        Returns:
+            The intersection of this Data Collection's supported
+            Content Bindings and binding_list.
+        Raises:
+            A StatusMessageException if the intersection is
+            an empty set.
+        """
+        print "binding_list", binding_list
+        if binding_list is None or len(binding_list) == 0:
+            return None
+        
+        matching_cbas = []
+        
+        for content_binding in binding_list:
+            cb_id = content_binding.binding_id
+            for subtype_id in content_binding.subtype_ids:
+                try:
+                    cb = ContentBindingAndSubtype.objects.get(content_binding__binding_id = cb_id, 
+                                                              subtype__subtype_id = subtype_id)
+                    matching_cbas.append(cb)
+                except ContentBindingAndSubtype.DoesNotExist:
+                    pass # This is OK. Other errors are not
+            
+            if len(content_binding.subtype_ids) == 0:
+                matches = ContentBindingAndSubtype.objects.filter(content_binding__binding_id = cb_id)
+                matching_cbas.extend(  list(matches)  )
+            
+        if len(matching_cbas) == 0: # No matching ContentBindingAndSubtype objects were found
+            if self.accept_all_content:
+                bindings = ContentBindingAndSubtype.objects.all()
+            else:
+                bindings = self.supported_content.all()
+            
+            supported_content = [b.to_content_binding_11() for b in bindings]
+            raise StatusMessageException(in_response_to, 
+                                         ST_UNSUPPORTED_CONTENT_BINDING, 
+                                         status_detail={SD_SUPPORTED_CONTENT: supported_content})
+        
+        return matching_cbas
     
     def is_content_supported(self, cbas):
         """
@@ -719,8 +803,9 @@ class QueryScope(models.Model):
     """
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
-    query_handler = models.ForeignKey('QueryHandler')
+    supported_query = models.ForeignKey('SupportedQuery')
     scope = models.CharField(max_length=MAX_NAME_LENGTH)
+    scope_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=SCOPE_CHOICES)
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -732,8 +817,9 @@ class QueryScope(models.Model):
         except:
             raise ValidationError('Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) separated by a /. No leading slash.')
         
-        handler_class = self.query_handler.get_handler_class()
+        handler_class = self.supported_query.query_handler.get_handler_class()
         
+        #TODO: Do something about this. Make a class?
         supported, error = handler_class.is_scope_supported(self.scope)
         if not supported:
             raise ValidationError('This query scope is not supported by the handler: %s' % 
@@ -754,6 +840,14 @@ class DiscoveryService(_TaxiiService):
     advertised_inbox_services = models.ManyToManyField('InboxService', blank=True)
     advertised_poll_services = models.ManyToManyField('PollService', blank=True)
     advertised_collection_management_services = models.ManyToManyField('CollectionManagementService', blank=True)
+    
+    def get_message_handler(self, taxii_message):
+        if taxii_message.message_type == MSG_DISCOVERY_REQUEST:
+            return self.discovery_handler
+        
+        raise StatusMessageException(taxii_message.message_id,
+                                     ST_FAILURE,
+                                     message="Message not supported by this service")
     
     def get_advertised_services(self):
         # Chain together all the enabled services that this discovery service advertises
@@ -870,6 +964,14 @@ class InboxService(_TaxiiService):
     destination_collections = models.ManyToManyField('DataCollection', blank=True)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
+    
+    def get_message_handler(self, taxii_message):
+        if taxii_message.message_type == MSG_INBOX_MESSAGE:
+            return self.inbox_message_handler
+        
+        raise StatusMessageException(taxii_message.message_id,
+                                     ST_FAILURE,
+                                     message="Message not supported by this service")
     
     def is_content_supported(self, cbas):
         """
@@ -1040,6 +1142,17 @@ class PollService(_TaxiiService):
     data_collections = models.ManyToManyField('DataCollection')
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     requires_subscription = models.BooleanField(default=False)
+    max_result_size = models.IntegerField(blank=True, null=True) # Blank means "no limit"
+    
+    def get_message_handler(self, taxii_message):
+        if taxii_message.message_type == MSG_POLL_REQUEST:
+            return self.poll_request_handler
+        elif taxii_message.message_type == MSG_POLL_FULFILLMENT_REQUEST:
+            return self.poll_fulfillment_handler
+        
+        raise StatusMessageException(taxii_message.message_id,
+                                     ST_FAILURE,
+                                     message="Message not supported by this service")
     
     def validate_collection_name(self, name, in_response_to):
         """
@@ -1055,6 +1168,89 @@ class PollService(_TaxiiService):
                                          {SD_ITEM: name})
         
         return collection
+    
+    def get_query_handler(self, query, in_response_to):
+        """
+        Arguments:
+            query - tdq.DefaultQuery object
+        Returns:
+            a QueryHandler for handling the query
+        Raises:
+            A StatusMessageException if a QueryHandler was not found
+        """
+        
+        # First, filter down by Targeting Expression ID
+        potential_matches = self.supported_queries.filter(
+                                query_handler__targeting_expression_id = 
+                                  query.targeting_expression_id)
+        
+        if len(potential_matches) == 0:
+            exprs = [sq.query_handler.targeting_expression_id for sq in self.supported_queries.all()]
+            raise StatusMessageException(in_response_to,
+                                         ST_UNSUPPORTED_TARGETING_EXPRESSION_ID,
+                                         status_detail={SD_TARGETING_EXPRESSION_ID: exprs})
+        
+        # Build the list of targets and capability modules used
+        # Use sets so DB queries are not repeated
+        targets = set([]) # Targets
+        cms = set([]) # Capability Modules
+        to_search = [query.criteria]
+        while len(to_search) > 0:
+            item = to_search.pop()
+            try:
+                target_list.add(item.target)
+                cm_list.add(item.test.capability_id)
+            except AttributeError:
+                to_search.extend(item.criteria)
+                to_search.extend(item.criterion)
+        
+        # Second, filter further by all capability modules used
+        for cm in cms:
+            potential_matches = potential_matches.filter(query_handler__capability_modules__contains = cm)
+            if len(potential_matches) == 0: # Filtering on this CM reduced possible query handlers to 0
+                # TODO: Get a list of supported capability modules for the response
+                supported_cms = []
+                raise StatusMessageException(in_response_to,
+                                             UNSUPPORTED_CAPABILITY_MODULE,
+                                             status_detail={SD_CAPABILITY_MODULE: supported_cms})
+        
+        # Iterate over all Targets
+        # and checks if they are supported by
+        # each Supported Query
+        
+        # If a Target isn't supported by any potential match,
+        # let the user know that target isn't supported
+        
+        matched_targets = set() # Targets with at least one match
+        for potential_match in potential_matches:
+            # TODO:
+            # There's a case where where you _could_ have
+            # two handlers that support the target list
+            # The TODO is to pick between them
+            # intelligently
+            match = True
+            for target in target_list:
+                if not potential_match.is_target_supported(target):
+                    match = False
+                    break
+                else:
+                    matched_targets.add(target)
+            if match:
+                return potential_match
+            
+        # No matches. At least one target won't be in 
+        # matched targets
+        
+        unmatched_targets = target_list - matched_targets
+        if len(unmatched_targets) == 0:# Not sure this can happen, but this code isn't tested so who knows
+            raise ValueError("There were 0 ummatched targets, but no match was returned")
+        
+        sd = {} # TODO: Fill this in with useful information
+        raise StatusMessageException(in_response_to,
+                                     ST_UNSUPPORTED_TARGETING_EXPRESSION,
+                                     status_detail=sd)
+        
+        
     
     def to_service_instances_11(self):
         service_instances = super(PollService, self).to_service_instances_11()
@@ -1133,7 +1329,7 @@ class ResultSetPart(models.Model):
     part_number = models.IntegerField()
     content_blocks = models.ManyToManyField('ContentBlock')
     content_block_count = models.IntegerField()
-    more = models.BooleanField()
+    more = models.BooleanField(default=False)
     exclusive_begin_timestamp_label = models.DateTimeField(blank=True, null=True)
     inclusive_end_timestamp_label = models.DateTimeField(blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
@@ -1183,16 +1379,39 @@ class Subscription(models.Model):
     """
     subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
     data_collection = models.ForeignKey('DataCollection')
-    response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices = RESPONSE_CHOICES, default=tm11.RT_FULL)
+    response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices = RESPONSE_CHOICES, default=RT_FULL)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
     query = models.TextField(blank=True)
     #push_parameters = models.ForeignKey(PushParameters)#TODO: Create a push parameters object
     delivery = models.CharField(max_length=MAX_NAME_LENGTH, choices = DELIVERY_CHOICES, default=SUBS_POLL)
-    status = models.CharField(max_length=MAX_NAME_LENGTH, choices = SUBSCRIPTION_STATUS_CHOICES, default=tm11.SS_ACTIVE)
+    status = models.CharField(max_length=MAX_NAME_LENGTH, choices = SUBSCRIPTION_STATUS_CHOICES, default=SS_ACTIVE)
     date_paused = models.DateTimeField(blank=True, null=True)
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
+    
+    def validate_active(self):
+        """
+        If the status is not active, raises a StatusMessageException.
+        Otherwise, has no effect
+        """
+        if not self.status == SS_ACTIVE:
+            raise StatusMessageException(poll_request.message_id,
+                                         ST_FAILURE,
+                                         'The Subscription is not active!')
+    
+    def to_poll_params_11(self):
+        """
+        Creates a tm11.PollParameters object based on the 
+        properties of this Subscription.
+        """
+        pp = tm11.PollParameters(response_type = self.response_type,
+                                 content_bindings = self.supported_content.all(), # Get supported contents?
+                                 allow_asynch = False,#TODO: This can't be specified?
+                                 query = self.query)#, #TODO: Implement push_parameters
+                                 #delivery_parameters = self.push_parameters)
+        return pp
+        
     
     def to_subscription_instance_10(self):
         """
@@ -1243,13 +1462,23 @@ class SupportedQuery(models.Model):
     description = models.TextField(blank=True)
     
     query_handler = models.ForeignKey('QueryHandler')
-    preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
-    allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
+    #preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
+    #allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
     
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
     #TODO: Need to limit preferred/allowed scope choices by the selected QueryHandler
+    
+    def is_target_supported(self, target):
+        """
+        Arguments:
+            target (str) - A targeting expression
+        Returns:
+            a SupportInfo object indicating whether the targeting expression is supported
+        """
+        #TODO: Actually implement this method
+        return SupportInfo(is_supported=True)
     
     def to_query_info_11(self):
         """

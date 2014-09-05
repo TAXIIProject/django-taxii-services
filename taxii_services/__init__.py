@@ -3,6 +3,11 @@
 
 __version__ = "0.1"
 
+import django
+django.setup()
+
+from taxii_handlers import *
+
 def register_admins(admin_list=None):
     import admin
     admin.register_admins(admin_list)

@@ -1,13 +1,13 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-import logging
-from django.http import HttpResponseServerError, HttpResponse
+import handlers
+from .exceptions import StatusMessageException
 
 from libtaxii.constants import *
 
-import handlers
-from exceptions import StatusMessageException
+from django.http import HttpResponseServerError, HttpResponse
+import logging
 import settings
 
 class StatusMessageExceptionMiddleware(object):
@@ -17,6 +17,14 @@ class StatusMessageExceptionMiddleware(object):
     pass on the Exception to the next Middleware object
     """
     def process_exception(self, request, exception):
+        """
+        Arguments:
+            request - a Django request
+            exception - An Exception
+        Returns:
+            None if the exception is not a StatusMessageException
+            an HttpResponseTaxii if it is
+        """
         
         if not isinstance(exception, StatusMessageException):
             return None # This class only handles StatusMessageExceptions
