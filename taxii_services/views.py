@@ -21,7 +21,7 @@ import traceback
 import sys
 from importlib import import_module
 
-ParseTuple = collections.namedtuple('ParseTuple', ['validator', 'parser']')
+ParseTuple = collections.namedtuple('ParseTuple', ['validator', 'parser'])
 
 TAXII_10_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_10_SCHEMA), tm10.get_message_from_xml)
 TAXII_11_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_11_SCHEMA), tm11.get_message_from_xml)

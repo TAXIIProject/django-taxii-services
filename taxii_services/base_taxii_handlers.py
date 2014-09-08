@@ -16,22 +16,22 @@ class MessageHandler(object):
     Child classes MUST specify a value for MessageHandler.supported_request_messages,
     and MUST implement the handle_message function.
 
-    e.g.,
+    e.g.,::
 
-    import libtaxii.messages_11 as tm11
+        import libtaxii.messages_11 as tm11
 
-    MessageHandlerChild(MessageHandler):
-        supported_request_messages = tm11.DiscoveryRequest
+        MessageHandlerChild(MessageHandler):
+            supported_request_messages = tm11.DiscoveryRequest
 
-        @classmethod
-        def handle_message(cls, service, taxii_message, django_request):
-            dr = tm11.DiscoveryResponse( ... )
-            # Code to handle the request against the service would go here
-            return dr
+            @classmethod
+            def handle_message(cls, service, taxii_message, django_request):
+                dr = tm11.DiscoveryResponse( ... )
+                # Code to handle the request against the service would go here
+                return dr
 
-    Optionally,register the MessageHandler child:
-    import taxii_services.management as m
-    m.register_message_handler(MessageHandlerChild, name='MessageHandlerChild')
+        Optionally,register the MessageHandler child:
+        import taxii_services.management as m
+        m.register_message_handler(MessageHandlerChild, name='MessageHandlerChild')
     """
     
     #: Identify the list of supported request messages
@@ -62,14 +62,13 @@ class MessageHandler(object):
 
         Arguments:
             django_request - The Django request to validate
-            in_response_to - If a StatusMessageException is raised as a result
-                             of header validation (e.g., the headers are invalid),
-                             in_response_to will be used as the in_response_to
-                             field of the Status Message.
+            in_response_to - If a StatusMessageException is raised as a result \
+                of header validation (e.g., the headers are invalid), \
+                in_response_to will be used as the in_response_to \
+                field of the Status Message.
 
-        returns:
-            None if all headers are valid. Raises a StatusMessageException
-            otherwise.
+        Returns:
+            None if all headers are valid. Raises a StatusMessageException otherwise.
         """
         
         # First, make sure required headers exist
@@ -188,6 +187,7 @@ class MessageHandler(object):
     def validate_message_is_supported(cls, taxii_message):
         """
         Checks whether the TAXII Message is supported by this Message Handler.
+
         Arguments:
             taxii_message - A libtaxii.messages_11 or libtaxii.messages_10 taxii message
 
@@ -217,6 +217,7 @@ class MessageHandler(object):
         raise NotImplementedError()
 
 class QueryHandler(object):
+
     """
     QueryHandler is the base class for TAXII Query
     Handlers.
@@ -225,24 +226,24 @@ class QueryHandler(object):
     and QueryHandler.supported_capability_modules
     and MUST implement the execute_query function.
 
-    e.g.,
+    e.g.,::
 
-    import libtaxii.messages_11 as tm11
-    import libtaxii.taxii_default_query as tdq
-    from libtaxii.constants import *
+        import libtaxii.messages_11 as tm11
+        import libtaxii.taxii_default_query as tdq
+        from libtaxii.constants import *
 
-    QueryHandlerChild(QueryHandler):
-        supported_targeting_expression = CB_STIX_XML_111
-        supported_capability_modules = [tdq.CM_CORE]
+        QueryHandlerChild(QueryHandler):
+            supported_targeting_expression = CB_STIX_XML_111
+            supported_capability_modules = [tdq.CM_CORE]
 
-        @classmethod
-        def execute_query(cls, content_block_list, query):
-            matching_content_blocks = []
-            for cb in content_block_list:
-                matches = # code to execute the query
-                if matches:
-                matching_content_blocks.append(cb)
-            return matching_content_blocks
+            @classmethod
+            def execute_query(cls, content_block_list, query):
+                matching_content_blocks = []
+                for cb in content_block_list:
+                    matches = # code to execute the query
+                    if matches:
+                    matching_content_blocks.append(cb)
+                return matching_content_blocks
 
     Optionally,register the QueryHandler child:
     import taxii_services.management as m
@@ -336,35 +337,35 @@ class BaseXmlQueryHandler(QueryHandler):
 
     Note that correctly specifying the mapping_dict is
     a critical aspect of extending this class. The mapping_dict
-    should adhere to the following format:
+    should adhere to the following format::
 
-    { 'root_context':
-        {'children':
-            '<xml_root_element_name>': 
-            {
-               'has_text': True/False,
-               'namespace': '<namespace>',
-               'prefix': 'prefix', # aka namespace alias
-               'children':
-               {
-                  '@<attribute_child>': { # can have 0-n of these
-                    'has_text': True, # attributes can always have text
-                    'namespace': <namespace> or None,
-                    'prefix': <prefix> or None,
-                    'children': {} #Attributes can't have children
-                  }, 
-                  '<element_child>': { # Can have 0-n of these
-                    'has_text': True or False, #Depending on whether the element value can hold text
-                    'namespace': <namespace> or None,
-                    'prefix': <prefix> or None,
-                    'children': { ... } # Any number of @<attribute_child> or <element_child> instances
-                  },
-               }
+        { 'root_context':
+            {'children':
+                '<xml_root_element_name>': 
+                {
+                   'has_text': True/False,
+                   'namespace': '<namespace>',
+                   'prefix': 'prefix', # aka namespace alias
+                   'children':
+                   {
+                      '@<attribute_child>': { # can have 0-n of these
+                        'has_text': True, # attributes can always have text
+                        'namespace': <namespace> or None,
+                        'prefix': <prefix> or None,
+                        'children': {} #Attributes can't have children
+                      }, 
+                      '<element_child>': { # Can have 0-n of these
+                        'has_text': True or False, #Depending on whether the element value can hold text
+                        'namespace': <namespace> or None,
+                        'prefix': <prefix> or None,
+                        'children': { ... } # Any number of @<attribute_child> or <element_child> instances
+                      },
+                   }
+                }
             }
         }
-    }
     """
-    
+
     supported_capability_modules = [tdq.CM_CORE]
     version = "1"
     

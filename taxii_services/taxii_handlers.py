@@ -107,12 +107,14 @@ class InboxMessage11Handler(MessageHandler):
         database.
 
         Workflow:
-            1. Validate the request's Destination Collection Names against the InboxService model
-            2. Create an InboxMessage model object for bookkeeping
-            3. Iterate over each Content Block in the request:
-            3a. Identify which of the request's destination collections support the Content Block's Content Binding
-            3b. Call `save_content_block(tm11.ContentBlock, <list of Data Collections from 3a>)`
-            4. Return Status Message with a Status Type of Success
+            #. Validate the request's Destination Collection Names against the InboxService model
+            #. Create an InboxMessage model object for bookkeeping
+            #. Iterate over each Content Block in the request:
+            
+             #. Identify which of the request's destination collections support the Content Block's Content Binding
+             #. Call `save_content_block(tm11.ContentBlock, <list of Data Collections from 3a>)`
+            
+            #. Return Status Message with a Status Type of Success
 
         Raises:
             A StatusMessageException for errors
@@ -244,13 +246,15 @@ class PollRequest11Handler(MessageHandler):
     def get_content(cls, prp, query_kwargs):
         """
         Given a poll_params_dict get content from the database.
+
         Arguments:
-            prp (util.PollRequestProperties) - Not used in this function, 
+            prp (util.PollRequestProperties) - Not used in this function, \
                     but can be used by implementers extending this function.
             query_kwargs (dict) - The parameters of the search for content
+
         Returns:
-            An list of models.ContentBlock objects. Classes that override
-            this method only need to return an iterable where each class has
+            An list of models.ContentBlock objects. Classes that override \
+            this method only need to return an iterable where each class has \
             a 'to_content_block_11()' function.
         """
         content = prp.collection.content_blocks.filter(**query_kwargs).order_by('timestamp_label')
@@ -320,14 +324,14 @@ class PollRequest11Handler(MessageHandler):
         
         This method returns a StatusMessage with a Status Type 
         of Pending OR raises a StatusMessageException
-        based on the following table:
+        based on the following table::
         
-        asynch | Delivery_Params | can_push || Response Type
-        ----------------------------------------------------
-        True   | -               | -        || Pending - Asynch
-        False  | Yes             | Yes      || Pending - Push
-        False  | Yes             | No       || StatusMessageException
-        False  | No              | -        || StatusMessageException
+            asynch | Delivery_Params | can_push || Response Type
+            ----------------------------------------------------
+            True   | -               | -        || Pending - Asynch
+            False  | Yes             | Yes      || Pending - Push
+            False  | Yes             | No       || StatusMessageException
+            False  | No              | -        || StatusMessageException
         """
         
         
@@ -518,7 +522,7 @@ class SubscriptionRequest11Handler(MessageHandler):
         
         Arguments:
             request (tm11.ManageCollectionSubscriptionRequest) - The request message
-            subscription (models.Subscription) - The subscription to unsubscribe, 
+            subscription (models.Subscription) - The subscription to unsubscribe, \
                         can be None if there is no corresponding subscription
 
         Returns:
@@ -656,17 +660,18 @@ class SubscriptionRequest11Handler(MessageHandler):
         """
         Workflow:
         (Kinda big)
-        1. Validate the Data Collection that the request identifies
-        2. Validate a variety of aspects of the request message
-        3. If there's a subscription_id in the request message, attempt to identify that
+        #. Validate the Data Collection that the request identifies
+        #. Validate a variety of aspects of the request message
+        #. If there's a subscription_id in the request message, attempt to identify that \
            subscription in the database
-        4. If Action == Subscribe, call `subscribe(request)`
-        5. If Action == Unsubscribe, call `unsubscribe(request, subscription)`
-        6. If Action == Pause, call `pause(request, subscription)`
-        7. If Action == Resume, call `resume(request, subscription)`
-        8. If Action == Status and there is a `subscription_id, call single_status(request, subscription)`
-        9. If Action == Status and there is not a `subscription_id, call `multi_status(request)`
-        10. Return a CollectionManageSubscriptionResponse
+        #. If Action == Subscribe, call `subscribe(request)`
+        #. If Action == Unsubscribe, call `unsubscribe(request, subscription)`
+        #. If Action == Pause, call `pause(request, subscription)`
+        #. If Action == Resume, call `resume(request, subscription)`
+        #. If Action == Status and there is a `subscription_id, call single_status(request, subscription)`
+        #. If Action == Status and there is not a `subscription_id, call `multi_status(request)`
+        #. Return a CollectionManageSubscriptionResponse
+
         """
         # Create an alias because the name is long as fiddlesticks
         smr = manage_collection_subscription_request
