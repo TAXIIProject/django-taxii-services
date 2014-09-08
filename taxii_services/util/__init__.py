@@ -26,6 +26,7 @@ class PollRequestProperties(object):
         self.content_bindings = None
         self.allow_asynch = None
         self.query = None
+        self.query_handler = None
         self.exclusive_begin_timestamp_label = None
         self.inclusive_end_timestamp_label = None
         self.delivery_paremeters = None
