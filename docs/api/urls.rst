@@ -1,4 +1,4 @@
-:mod:`libtaxii.urls` Module
+:mod:`taxii_services.urls` Module
 ==========================================
 
 .. automodule:: taxii_services.urls

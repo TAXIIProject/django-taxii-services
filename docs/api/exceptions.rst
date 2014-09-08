@@ -1,4 +1,4 @@
-:mod:`libtaxii.exceptions` Module
+:mod:`taxii_services.exceptions` Module
 ==========================================
 
 .. automodule:: taxii_services.exceptions

@@ -1,4 +1,4 @@
-:mod:`libtaxii.handlers` Module
+:mod:`taxii_services.handlers` Module
 ==========================================
 
 .. automodule:: taxii_services.handlers

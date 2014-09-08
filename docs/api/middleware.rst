@@ -1,4 +1,4 @@
-:mod:`libtaxii.middleware` Module
+:mod:`taxii_services.middleware` Module
 ==========================================
 
 .. automodule:: taxii_services.middleware

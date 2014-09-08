@@ -10,35 +10,25 @@ MessageHandlers
 In django-taxii-services, MessageHandlers are how a TAXII Service handles a request and
 creates a response. Each TAXII Service can have one message handler per message exchange.
 
-1. A Django request is passed to `taxii_services.views.service_router`
-2. `service_router` looks at the request's X-TAXII-Content-Type header to identify whether it's a TAXII 1.0 or TAXII 1.1 message
-3. If validation is requested, validation is attempted. If validation fails, a StatusMessage is automatically returned
-4. Message deserialization is attempted using libtaxii. If deserialization fails, a StatusMessage is automatically returned
-5. Based on the path portion of the request URL (e.g., '/path/to_a_service/'), get a TAXII Service from the database. If no service is found, return an HTTP 404.
-6. 
+The base_taxii_handlers.MessageHandler class is the base class for all TAXII Message Handlers 
+and has a single extension point – the ‘handle_message’ function. Implementers who wish to 
+have the most power over their MessageHandler should extend MessageHandler and implement the 
+‘handle_message’ function. Implementers can also re-use django-taxii-service’s built-in 
+TAXII Message Handlers for less power, but more work already done for them.
 
-Every MessageHandler inherits from taxii_services.base_taxii_handlers.MessageHandler.
+Built-in TAXII Message Handlers have two goals: first, to provide correct functionality 
+for the TAXII Message Exchange they support; second, to provide an extensible/reusable 
+class where implementers can make (hopefully) simple modification(s) to a built-in MessageHandler 
+to achieve functionality specific to their needs. Note that all built-in TAXII Message Handlers 
+extend the base_taxii_handlers.MessageHandler class. To meet the second goal of extensibility/reusability, 
+some built-in TAXII Message Handlers have extension points in addition to the ‘handle_message’ 
+function. These extension points (functions) are called by the ‘handle_message’ function of the 
+built-in TAXII Message Handler as part of the workflow for handling that message. One example 
+of this is the ‘save_content_block’ method of the InboxMessage11Handler, which allows 
+implementers to override just the InboxMessage11Handler’s default logic for saving content 
+without needing to re-implement the rest of the handler’s processing logic.
 
-**Built-In Message Handlers**
-
-django-taxii-services comes with built in message handlers for every message exchange in TAXII:
-* **DiscoveryRequest11Handler** - Handles TAXII 1.1 Discovery Requests (Discovery Service)
-* **DiscoveryRequest10Handler** - Handles TAXII 1.0 Discovery Requests (Discovery Service)
-* **DiscoveryRequestHandler** - Handles TAXII 1.1 and TAXII 1.0 Discovery Requests. (Discovery Service)
-* **InboxMessage11Handler** - Handles TAXII 1.1 Inbox Messages (Inbox Service)
-* **InboxMessage10Handler** - Handles TAXII 1.0 Inbox Messages (Inbox Service)
-* **InboxMessageHandler** - Handles TAXII 1.1 and TAXII 1.0 Inbox Messages (Inbox Service)
-* **PollRequest11Handler** - Handles TAXII 1.1 Poll Requests (Poll Service)
-* **PollRequest10Handler** - Handles TAXII 1.0 Poll Requests (Poll Service)
-* **PollRequestHandler** - Handles TAXII 1.1 and TAXII 1.0 Poll Requests (Poll Service)
-* **PollFulfillmentRequest11Handler** - Handles TAXII 1.1 Poll Fulfillment Requests  (Poll Service) - Poll Fulfillment did not exist in TAXII 1.0, so there is not a Poll Fulfillment handler for TAXII 1.0
-* **CollectionInformationRequest11Handler** - Handles TAXII 1.1 Collection Information Requests (Collection Management Service)
-* **FeedInformationRequest11Handler** - Handles TAXII 1.0 Feed Information Requests (Collection Management Service)
-* **CollectionInformationRequestHandler** - Handles TAXII 1.1 Collection Information and TAXII 1.0 Feed Information Requests (Collection Management Service)
-* **SubscriptionRequest11Handler** - Handles TAXII 1.1 Manage Collection Subscription Requests (Collection Management Service)
-* **SubscriptionRequest10Handler** - Handles TAXII 1.0 Manage Feed Subscription Requests (Collection Management Service)
-* **SubscriptionRequestHandler** - Handles TAXII 1.1 Manage Collection Subscription Requests and TAXII 1.0 Manage Feed Collection Subscription Requests (Collection Management Service)
-
+The MessageHandlers are documented in taxii_services.MessageHandlers section of the API.
 
 
 QueryHandlers

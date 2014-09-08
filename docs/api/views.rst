@@ -1,4 +1,4 @@
-:mod:`libtaxii.views` Module
+:mod:`taxii_services.views` Module
 ==========================================
 
 .. automodule:: taxii_services.views

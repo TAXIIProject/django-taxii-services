@@ -1,4 +1,4 @@
-:mod:`libtaxii.management` Module
+:mod:`taxii_services.management` Module
 ==========================================
 
 .. automodule:: taxii_services.management

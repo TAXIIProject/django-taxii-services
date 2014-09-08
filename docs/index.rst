@@ -18,6 +18,7 @@ Contents:
     :maxdepth: 2
 
     handlers
+    changes
 
 API Reference
 =============
