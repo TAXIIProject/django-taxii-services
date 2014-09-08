@@ -44,7 +44,7 @@ def service_router(request, path, do_validate=True):
         raise StatusMessageException('0', ST_BAD_MESSAGE, 'The X-TAXII-Content-Type Header was not present.')
 
     parse_tuple = xtct_map.get(xtct)
-    if not parse_info:
+    if not parse_tuple:
         raise StatusMessageException('0', ST_BAD_MESSAGE, 'The X-TAXII-Content-Type Header is not supported.')
 
     if do_validate:
