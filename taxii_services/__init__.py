@@ -9,6 +9,12 @@ django.setup()
 from taxii_handlers import *
 
 def register_admins(admin_list=None):
+    """
+    Registers all admins or the subset specified by admin_list.
+
+    Arguments:
+        admin_list (list of taxii_services.admin objects to register) - **optional**
+    """
     import admin
     admin.register_admins(admin_list)
 
@@ -18,7 +24,8 @@ def register_admins(admin_list=None):
 def register_message_handlers(handler_list=None):
     """
     Args:
-        handler_list () - List of built-in message handlers to register. None inports all handlers
+        handler_list (list) - **optional** List of built-in message handlers to register. Defaults
+                              to "all handlers"
     """
     import taxii_handlers
     taxii_handlers.register_message_handlers(handler_list)
