@@ -2,6 +2,7 @@
 *.py[co]
 build/
 dist/
+docs/_build/
 *.egg-info
 .project
 .pydevproject
