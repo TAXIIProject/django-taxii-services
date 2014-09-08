@@ -382,6 +382,30 @@ class CollectionManagementService(_TaxiiService):
         
         return cir
     
+    def validate_collection_name(self, collection_name, in_response_to):
+        """
+        Arguments:
+            collection_name (str) - The name of a collection
+            in_response_to (str) - The message_id of the request
+
+        Returns:
+            A models.DataCollection object, if this CollectionManagementService
+            handles subscriptions DataCollection identified by collection_name
+            and that DataCollection has enabled=True
+
+        Raises:
+            A StatusMessageException if this CollectionManagementService does not
+            handle subscriptions for the DataCollection identified by collection_name
+            or the DataCollection has enabled=False.
+        """
+        try:
+            data_collection = self.advertised_collections.get(collection_name = smr.collection_name, enabled=True)
+        except models.DataCollection.DoesNotExist:
+            raise StatusMessageException(in_response_to,
+                                         ST_NOT_FOUND,
+                                         status_detail={'ITEM': collection_name} )
+        return data_collection
+
     class Meta:
         verbose_name = "Collection Management Service"
 
