@@ -635,7 +635,6 @@ class DataCollection(models.Model):
             A StatusMessageException if the intersection is
             an empty set.
         """
-        print "binding_list", binding_list
         if binding_list is None or len(binding_list) == 0:
             return None
         

@@ -70,9 +70,7 @@ class PollRequestProperties(object):
         else:
             pp = poll_request.poll_parameters
             prp.response_type = pp.response_type
-            print "000 - getting content bindings"
             prp.content_bindings = prp.collection.get_binding_intersection_11(pp.content_bindings, prp.message_id)
-            print "001 - done getting content bindings"
             prp.allow_asynch = pp.allow_asynch
             prp.query = pp.query
             if prp.query:
