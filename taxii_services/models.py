@@ -232,7 +232,7 @@ class _Handler(models.Model):
 class _TaxiiService(models.Model):
     """
     Not to be used by users directly. Defines common fields that all 
-    TAXII Services use
+    TAXII Services use.
     """
     service_type = None
     name = models.CharField(max_length=MAX_NAME_LENGTH)
@@ -246,8 +246,9 @@ class _TaxiiService(models.Model):
     
     def to_service_instances_10(self):
         """
-        Returns a list of 1 or 2 (depending on the supported protocol bindings)
-        tm10.ServiceInstance objects.
+        Returns:
+            A list of 1 or 2 (depending on the supported protocol bindings)
+            tm10.ServiceInstance objects.
         """
         service_instances = []
         for pb in self.supported_protocol_bindings.all():
@@ -268,8 +269,9 @@ class _TaxiiService(models.Model):
     
     def to_service_instances_11(self):
         """
-        Returns a list of 1 or 2 (depending on the supported protocol bindings)
-        tm11.ServiceInstance objects.
+        Returns:
+            A list of 1 or 2 (depending on the supported protocol bindings)
+            tm11.ServiceInstance objects.
         """
         service_instances = []
         for pb in self.supported_protocol_bindings.all():
@@ -290,8 +292,13 @@ class _TaxiiService(models.Model):
         Given a taxii_message, return the correct
         MessageHandler model object or raise a 
         StatusMessage
-        
+
         MUST be implemented by subclasses.
+        Arguments:
+            taxii_message (a tm11 or tm10 TAXII Message)
+
+        Returns:
+            A models.MessageHandler object
         """
         raise NotImplementedError()
     
@@ -353,6 +360,9 @@ class CollectionManagementService(_TaxiiService):
         """
         Creates a tm10.FeedInformationResponse
         based on this model
+
+        Returns:
+            A tm10.FeedInformationResponse object
         """
         
         # Create a stub FeedInformationResponse
@@ -369,6 +379,9 @@ class CollectionManagementService(_TaxiiService):
         """
         Creates a tm11.CollectionInformationResponse 
         based on this model
+
+        Returns:
+            A tm11.CollectionInformationResponse object
         """
         
         # Create a stub CollectionInformationResponse
@@ -411,7 +424,7 @@ class CollectionManagementService(_TaxiiService):
 class ContentBinding(_BindingBase):
     """
     Model for Content Binding IDs. Subtypes are stored in a different model.
-    
+
     See also: ContentBindingAndSubtype
     """
     validator = models.ForeignKey('Validator', blank=True, null=True)
@@ -421,6 +434,9 @@ class ContentBinding(_BindingBase):
 class ContentBindingAndSubtype(models.Model):
     """
     Model that relates ContentBindings to ContentBindingSubtypes.
+
+    This is the primary mechanism by which ContentBindings and Subtypes
+    are visualized / managed.
     """
     content_binding = models.ForeignKey('ContentBinding')
     subtype = models.ForeignKey('ContentBindingSubtype', blank=True, null=True)
@@ -429,6 +445,7 @@ class ContentBindingAndSubtype(models.Model):
     
     def to_content_binding_11(self):
         """
+        TODO: Implement this?
         """
         pass
     
@@ -499,13 +516,13 @@ class ContentBlock(models.Model):
     Model for a Content Block
     """
     message = models.TextField(blank=True)
-    
+
     timestamp_label = models.DateTimeField(auto_now_add=True)
     inbox_message = models.ForeignKey('InboxMessage', blank=True, null=True)
     content_binding_and_subtype = models.ForeignKey('ContentBindingAndSubtype')
     content = models.TextField()
     padding = models.TextField(blank=True)
-    
+
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
     
@@ -513,8 +530,11 @@ class ContentBlock(models.Model):
         """
         Returns a tm10.ContentBlock
         based on this model
+
+        Returns:
+            A tm10.ContentBlock object
         """
-        
+
         content_binding = self.content_binding_and_subtype.content_binding.binding_id
         cb = tm10.ContentBlock(content_binding = content_binding, content = self.content, padding = self.padding)
         if self.timestamp_label:
@@ -526,8 +546,11 @@ class ContentBlock(models.Model):
         """
         Returns a tm11.ContentBlock based
         on this model
+
+        Returns:
+            A tm11.ContentBlock object
         """
-        
+
         content_binding = tm11.ContentBinding(self.content_binding_and_subtype.content_binding.binding_id)
         if self.content_binding_and_subtype.subtype:
             content_binding.subtype_ids.append(self.content_binding_and_subtype.subtype.subtype_id)
@@ -542,12 +565,15 @@ class ContentBlock(models.Model):
         """
         Returns a ContentBlock model object
         based on a tm11.ContentBlock object
-        
+
         inbox_message is the models.InboxMessage that the 
         content block arrived in
-        
+
         NOTE THAT THIS FUNCTION DOES NOT CALL save() on the
         returned model.
+
+        Returns:
+            An **unsaved** models.ContentBlock object
         """        
         # Get the Content Binding Binding Id and (if present) Subtype
         binding_id = content_block.content_binding.binding_id
@@ -600,9 +626,11 @@ class DataCollection(models.Model):
         """
         Arguments:
             binding_list - a list of tm11.ContentBinding objects
+
         Returns:
             The intersection of this Data Collection's supported
             Content Bindings and binding_list.
+
         Raises:
             A StatusMessageException if the intersection is
             an empty set.
@@ -644,7 +672,7 @@ class DataCollection(models.Model):
         """
         Takes an ContentBindingAndSubtype object and determines if
         this data collection supports it.
-        
+
         Decision process is:
         1. If this accepts any content, return True
         2. If this supports binding ID > (All), return True
@@ -673,6 +701,8 @@ class DataCollection(models.Model):
     
     def to_feed_information_10(self):
         """
+        Returns:
+            A tm10.FeedInformation object
         """
         fi = tm10.FeedInformation(
                 feed_name = self.name,
@@ -689,8 +719,9 @@ class DataCollection(models.Model):
     
     def to_collection_information_11(self):
         """
-        Returns a tm11.CollectionInformation object
-        based on this model
+        Returns:
+            A tm11.CollectionInformation object
+            based on this model
         """
         ci = tm11.CollectionInformation(
                 collection_name = self.name,
@@ -707,17 +738,26 @@ class DataCollection(models.Model):
         return ci
     
     def get_supported_content_10(self):
+        """
+        Returns:
+            A list of strings indicating the Content Binding IDs that this
+            Data Collection supports. None indicates all are supported.
+        """
         return_list = []
     
         if self.accept_all_content:
             return_list = None # Indicates accept all
         else:
-            # TODO: Should this be a filter and only supply supported_content where subtype=None?
-            for content in self.supported_content.all():
+            for content in self.supported_content.filter(subtype=None):
                 return_list.append(content.content_binding.binding_id)
         return return_list
     
     def get_supported_content_11(self):
+        """
+        Returns:
+            A list of tm11.ContentBlock objects indicating which ContentBindings are supported.
+            None indicates all are supported.
+        """
         return_list = []
     
         if self.accept_all_content:
@@ -892,6 +932,12 @@ class DiscoveryService(_TaxiiService):
                                      message="Message not supported by this service")
     
     def get_advertised_services(self):
+        """
+        Returns: 
+            A list of DiscoveryService, InboxService, PollService, and 
+            CollectionManagementService objects that this DiscoveryService
+            advertises
+        """
         # Chain together all the enabled services that this discovery service advertises
         advertised_services = list(chain(self.advertised_discovery_services.filter(enabled=True),
                                          self.advertised_poll_services.filter(enabled=True),
@@ -900,6 +946,10 @@ class DiscoveryService(_TaxiiService):
         return advertised_services
     
     def to_discovery_response_10(self, in_response_to):
+        """
+        Returns:
+            A tm10.DiscoveryResponse based on this model.
+        """
         advertised_services = self.get_advertised_services()
         discovery_response = tm10.DiscoveryResponse(generate_message_id(), in_response_to)
         for service in advertised_services:
@@ -910,6 +960,10 @@ class DiscoveryService(_TaxiiService):
         return discovery_response
     
     def to_discovery_response_11(self, in_response_to):
+        """
+        Returns:
+            A tm11.DiscoveryResponse based on this model.
+        """
         advertised_services = self.get_advertised_services()
         discovery_response = tm11.DiscoveryResponse(generate_message_id(), in_response_to)
         for service in advertised_services:
@@ -955,6 +1009,9 @@ class InboxMessage(models.Model):
         from a tm11.InboxMessage object
         
         NOTE THAT THIS FUNCTION DOES NOT CALL .save()
+        
+        Returns:
+            An **unsaved** models.InboxMessage object.
         """
 
         # For bookkeeping purposes, create an InboxMessage object
@@ -1048,8 +1105,11 @@ class InboxService(_TaxiiService):
     
     def validate_destination_collection_names(self, name_list, in_response_to):
         """
-        Returns a list of Data Collections or raises a 
-        StatusMessageException.
+        Returns:
+            A list of Data Collections
+
+        Raises: 
+            A StatusMessageException if any Destination Collection Names are invalid.
         """
         num = len(name_list)
         if self.destination_collection_status == REQUIRED[0] and num == 0:
@@ -1078,10 +1138,6 @@ class InboxService(_TaxiiService):
         return collections
     
     def to_service_instances_10(self):
-        """
-        Returns a tm10.ServiceInstance object
-        based on this model
-        """
         service_instances = super(InboxService, self).to_service_instances_10()
         if self.accept_all_content:
             return service_instances
@@ -1091,10 +1147,6 @@ class InboxService(_TaxiiService):
         return service_instances
     
     def to_service_instances_11(self):
-        """
-        Returns a tm11.ServiceInstance object
-        based on this model
-        """
         service_instances = super(InboxService, self).to_service_instances_10()
         if self.accept_all_content:
             return service_instances
@@ -1150,7 +1202,7 @@ class MessageBinding(_BindingBase):
 
 class MessageHandler(_Handler):
     """
-    Testing out a new concept.
+    MessageHandler model object.
     """
     handler_functions = ['handle_message']
     supported_messages = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
@@ -1198,8 +1250,15 @@ class PollService(_TaxiiService):
     
     def validate_collection_name(self, name, in_response_to):
         """
-        Returns a DataCollection object based on the name
-        or raises a StatusMessageException
+        Arguments:
+            name (str) - The name of a Data Collection
+            in_response_to (str) - The message_id to use if this function raises an Exception
+
+        Returns:
+            A DataCollection object based on the name
+
+        Raises:
+            A StatusMessageException if the named Data Collection does not exist
         """
         try:
             collection = self.data_collections.get(name=name)
@@ -1215,8 +1274,10 @@ class PollService(_TaxiiService):
         """
         Arguments:
             query - tdq.DefaultQuery object
+
         Returns:
             a QueryHandler for handling the query
+
         Raises:
             A StatusMessageException if a QueryHandler was not found
         """
