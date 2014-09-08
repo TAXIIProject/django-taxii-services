@@ -1,0 +1,17 @@
+language: python
+env:
+   - TOXENV=py26
+   - TOXENV=py27
+   - TOXENV=rhel6
+
+install:
+# Only run tox once we get it set up.
+#   - pip install tox
+   - pip install pep8
+script:
+#   - tox
+   - pep8 --exclude=.tox,build
+
+notifications:
+    email:
+        - taxii-commits-list@lists.mitre.org
