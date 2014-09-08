@@ -248,9 +248,9 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 ## MSD 9/5/2014 - Set settings.py so that the build can succeed
-import os
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-if not on_rtd:
-    raise Exception("The RTD module can only be imported for readthedocs builds!")
+#import os
+#on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+#if not on_rtd:
+#    raise Exception("The RTD module can only be imported for readthedocs builds!")
 
 os.environ['DJANGO_SETTINGS_MODULE'] = 'rtd.settings'
