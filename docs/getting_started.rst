@@ -8,25 +8,4 @@ Installation
 ------------
 There are two options for installation:
 #. :code:`pip install taxii_services --upgrade`
-#. Download the latest zip from https://pypi.python.org/pypi/taxii_services/
-
-Modules
--------
-
-TBD
-
-????
-----
-TBD
-
-
-???
----
-
-TBD
-
-
-???
----
-
-TBD
+#. Download the latest zip from https://pypi.python.org/pypi/taxii-services
