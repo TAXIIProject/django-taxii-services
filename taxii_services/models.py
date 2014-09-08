@@ -173,7 +173,8 @@ class _Handler(models.Model):
     
     def get_handler_class(self):
         """
-        Gets a handle on the class
+        Returns:
+            An handle on the handler class
         """
         module = import_module(self.module_name)
         handler_class = getattr(module, self.class_name)
@@ -290,7 +291,7 @@ class _TaxiiService(models.Model):
         MessageHandler model object or raise a 
         StatusMessage
         
-        Must be implemented by subclasses.
+        MUST be implemented by subclasses.
         """
         raise NotImplementedError()
     
@@ -318,8 +319,6 @@ class CollectionManagementService(_TaxiiService):
                                                                           'ManageCollectionSubscriptionRequest'}, 
                                                         blank=True, 
                                                         null=True)
-    #TODO: This field is also used to determine which Collections this 
-    #      service processes subscriptions for. Is that right?
     advertised_collections = models.ManyToManyField('DataCollection', blank=True, null=True)
     supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
     

@@ -578,7 +578,7 @@ class SubscriptionRequest11Handler(MessageHandler):
         return subscription.to_subscription_instance_11()
     
     @staticmethod
-    def single_status(request, subscription)
+    def single_status(request, subscription):
         """
         Workflow:
             1. Returns `subscription.to_subscription_instance_11()`
@@ -593,7 +593,7 @@ class SubscriptionRequest11Handler(MessageHandler):
         return subscription.to_subscription_instance_11()
     
     @staticmethod
-    def multi_status(request)
+    def multi_status(request):
         """
         Workflow:
             1. For every subscription in the system, call `subscription.to_subscription_instance_11()`
@@ -703,9 +703,10 @@ class SubscriptionRequest11Handler(MessageHandler):
         
         # Attempt to identify a subscription in the database
         if smr.subscription_id:
-            subscription = models.Subscription.objects.get(subscription_id = request.subscription_id)
-        except models.Subscription.DoesNotExist:
-            subscription = None # This is OK for certain circumstances
+            try:
+                subscription = models.Subscription.objects.get(subscription_id = request.subscription_id)
+            except models.Subscription.DoesNotExist:
+                subscription = None # This is OK for certain circumstances
         
         # If subscription is None for Unsubscribe, that's OK, but it's not OK
         # for Pause/Resume
