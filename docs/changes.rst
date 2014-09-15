@@ -1,6 +1,12 @@
 Release Notes
 =============
 
+0.1.1
+-----
+
+There was a critical bug in 0.1 that was somehow missed. (#13). 
+This bug fix release is simply to fix that bug.
+
 0.1
 ---
 
