@@ -1,6 +1,12 @@
 Release Notes
 =============
 
+0.1.2
+-----
+
+The dependencies are now listed correctly, making it easier for
+people to use django-taxii-services
+
 0.1.1
 -----
 
