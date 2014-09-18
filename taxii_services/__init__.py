@@ -1,7 +1,7 @@
 # Copyright (C) 2014 - The MITRE Corporation
 # For license information, see the LICENSE.txt file
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 import django
 django.setup()
