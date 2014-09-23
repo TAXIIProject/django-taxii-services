@@ -3,8 +3,8 @@
 
 __version__ = "0.1.2"
 
-import django
-django.setup()
+#import django
+#django.setup()
 
 from taxii_handlers import *
 
