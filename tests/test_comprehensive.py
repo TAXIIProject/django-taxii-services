@@ -385,7 +385,7 @@ class PollRequestTests11(TestCase):
         make_request('/test_poll_1/',
                      pr.to_xml(),
                      get_headers(VID_TAXII_SERVICES_11, False),
-                     ST_FAILURE)
+                     MSG_STATUS_MESSAGE)
 
     def test_03(self):
         """
