@@ -5,6 +5,7 @@ from .. import models
 from ..exceptions import StatusMessageException
 from libtaxii.constants import *
 import datetime
+import dateutil
 from dateutil.tz import tzutc
 
 class PollRequestProperties(object):
@@ -84,15 +85,15 @@ class PollRequestProperties(object):
             
             #If the request specifies a timestamp label in an acceptable range, use it. Otherwise, don't use a begin timestamp label
             if poll_request.exclusive_begin_timestamp_label:
-                pr_ebtl = dateutil.parser.parse(poll_request.exclusive_begin_timestamp_label)
+                pr_ebtl = poll_request.exclusive_begin_timestamp_label
                 if pr_ebtl < current_datetime:
-                    prp.exclusive_begin_timestamp_label = dateutil.parser.parse(poll_request.exclusive_begin_timestamp_label)
+                    prp.exclusive_begin_timestamp_label = poll_request.exclusive_begin_timestamp_label
             
             #Use either the specified end timestamp label; or the current time iff the specified end timestmap label is after the current time
             prp.inclusive_end_timestamp_label = current_datetime
             if poll_request.inclusive_end_timestamp_label:
-                pr_ietl = dateutil.parser.parse(poll_request.inclusive_end_timestamp_label)
+                pr_ietl = poll_request.inclusive_end_timestamp_label
                 if pr_ietl < current_datetime:
-                    prp.inclusive_end_timestamp_label = dateutil.parser.parse(inclusive_end_timestamp_label)
+                    prp.inclusive_end_timestamp_label = poll_request.inclusive_end_timestamp_label
         
         return prp
