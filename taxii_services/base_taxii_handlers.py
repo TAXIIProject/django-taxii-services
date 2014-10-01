@@ -8,7 +8,7 @@ import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
 from django.conf import settings
 
-class MessageHandler(object):
+class BaseMessageHandler(object):
     """
     MessageHandler is the base class for TAXII Message
     Handlers.
