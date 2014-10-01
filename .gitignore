@@ -9,3 +9,7 @@ docs/_build/
 .settings
 *.db
 *.DS_Store
+.idea
+.tox
+output.txt
+*.log
