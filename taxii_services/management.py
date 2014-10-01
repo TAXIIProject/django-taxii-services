@@ -3,6 +3,7 @@
 
 from .models import MessageHandler, QueryHandler
 
+from django.core.exceptions import AppRegistryNotReady
 from django.db.models.signals import post_syncdb
 from django.db.utils import DatabaseError
 
@@ -34,7 +35,7 @@ def register_message_handler(message_handler, name=None, retry=True):
         mh.name = name
         mh.clean()
         mh.save()
-    except DatabaseError as dbe:  # Assume this is because DB isn't set up yet
+    except (AppRegistryNotReady, DatabaseError) as dbe:  # Assume this is because DB isn't set up yet
         if retry:
             message_handlers_to_retry.append((message_handler, name))
         else:
@@ -66,7 +67,7 @@ def register_query_handler(query_handler, name=None, retry=True):
         qh.name = name
         qh.clean()
         qh.save()
-    except DatabaseError as dbe:  # Assume this is because DB isn't set up yet
+    except (AppRegistryNotReady, DatabaseError) as dbe:  # Assume this is because DB isn't set up yet
         if retry:
             query_handlers_to_retry.append((query_handler, name))
         else:
