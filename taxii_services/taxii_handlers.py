@@ -1,7 +1,7 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from .base_taxii_handlers import MessageHandler
+from .base_taxii_handlers import BaseMessageHandler
 from .exceptions import StatusMessageException
 import handlers
 import models
@@ -18,7 +18,7 @@ import dateutil.parser
 import datetime
 from dateutil.tz import tzutc
 
-class DiscoveryRequest11Handler(MessageHandler):
+class DiscoveryRequest11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Discovery Request Handler.
     """
@@ -35,7 +35,7 @@ class DiscoveryRequest11Handler(MessageHandler):
         """
         return discovery_service.to_discovery_response_11(discovery_request.message_id)
 
-class DiscoveryRequest10Handler(MessageHandler):
+class DiscoveryRequest10Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.0 Discovery Request Handler
     """
@@ -52,7 +52,7 @@ class DiscoveryRequest10Handler(MessageHandler):
         """
         return discovery_service.to_discovery_response_10(discovery_request.message_id)
 
-class DiscoveryRequestHandler(MessageHandler):
+class DiscoveryRequestHandler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 and TAXII 1.0 Discovery Request Handler
     """
@@ -73,7 +73,7 @@ class DiscoveryRequestHandler(MessageHandler):
                                          ST_FAILURE,
                                          "TAXII Message not supported by Message Handler.")
 
-class InboxMessage11Handler(MessageHandler):
+class InboxMessage11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Inbox Message Handler.
     """
@@ -163,7 +163,7 @@ class InboxMessage11Handler(MessageHandler):
                                             status_type = ST_SUCCESS)
         return status_message
 
-class InboxMessage10Handler(MessageHandler):
+class InboxMessage10Handler(BaseMessageHandler):
     """
     Built in TAXII 1.0 Message Handler
     """
@@ -177,7 +177,7 @@ class InboxMessage10Handler(MessageHandler):
         """
         raise NotImplementedError()
 
-class InboxMessageHandler(MessageHandler):
+class InboxMessageHandler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 and 1.0 Message Handler
     """
@@ -198,7 +198,7 @@ class InboxMessageHandler(MessageHandler):
                                          ST_FAILURE,
                                          "TAXII Message not supported by Message Handler.")
 
-class PollFulfillmentRequest11Handler(MessageHandler):
+class PollFulfillmentRequest11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Poll Fulfillment Request Handler.
     """
@@ -231,7 +231,7 @@ class PollFulfillmentRequest11Handler(MessageHandler):
 
 # PollFulfillment is new in TAXII 1.1, so there aren't any TAXII 1.0 handlers for it
 
-class PollRequest11Handler(MessageHandler):
+class PollRequest11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Poll Request Handler.
     
@@ -407,7 +407,7 @@ class PollRequest11Handler(MessageHandler):
         
         return response
 
-class PollRequest10Handler(MessageHandler):
+class PollRequest10Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.0 Poll Request Handler
     """
@@ -421,7 +421,7 @@ class PollRequest10Handler(MessageHandler):
         """
         pass
 
-class PollRequestHandler(MessageHandler):
+class PollRequestHandler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 and TAXII 1.0 Poll Request Handler
     """
@@ -443,7 +443,7 @@ class PollRequestHandler(MessageHandler):
                                          ST_FAILURE,
                                          "TAXII Message not supported by Message Handler.")
 
-class CollectionInformationRequest11Handler(MessageHandler):
+class CollectionInformationRequest11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Collection Information Request Handler.
     """
@@ -459,7 +459,7 @@ class CollectionInformationRequest11Handler(MessageHandler):
         in_response_to = collection_information_request.message_id
         return collection_management_service.to_collection_information_response_11(in_response_to)
 
-class FeedInformationRequest10Handler(MessageHandler):
+class FeedInformationRequest10Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.0 Feed Information Request Handler
     """
@@ -475,7 +475,7 @@ class FeedInformationRequest10Handler(MessageHandler):
         in_response_to = feed_information_request.message_id
         return collection_management_service.to_feed_information_response_10(in_response_to)
 
-class CollectionInformationRequestHandler(MessageHandler):
+class CollectionInformationRequestHandler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 and 1.0 Collection/Feed Information Request handler.
     """
@@ -501,7 +501,7 @@ class CollectionInformationRequestHandler(MessageHandler):
         else:
             raise ValueError("Unsupported message!")
 
-class SubscriptionRequest11Handler(MessageHandler):
+class SubscriptionRequest11Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 Manage Collection Subscription Request Handler.
     """
@@ -752,7 +752,7 @@ class SubscriptionRequest11Handler(MessageHandler):
             
         return response
 
-class SubscriptionRequest10Handler(MessageHandler):
+class SubscriptionRequest10Handler(BaseMessageHandler):
     """
     Built-in TAXII 1.0 Manage Collection Subscription Request Handler.
     """
@@ -767,7 +767,7 @@ class SubscriptionRequest10Handler(MessageHandler):
         """
         pass
 
-class SubscriptionRequestHandler(MessageHandler):
+class SubscriptionRequestHandler(BaseMessageHandler):
     """
     Built-in TAXII 1.1 and TAXII 1.0 Management Collection/Feed Subscription Request Handler.
     """
@@ -815,7 +815,7 @@ def register_message_handlers(handler_list=None):
         for name, obj in v.iteritems():
             if ( inspect.isclass(obj) and 
                  obj.__module__ == 'taxii_services.taxii_handlers' and
-                 issubclass(obj, MessageHandler) ):
+                 issubclass(obj, BaseMessageHandler) ):
                 handler_list.append(name)
     
     for handler in handler_list:
@@ -825,6 +825,6 @@ def register_message_handlers(handler_list=None):
               not obj.__module__ == 'taxii_services.taxii_handlers' ):
             raise ValueError('%s is not a valid Message Handler' % handler)
         
-        assert issubclass(obj, MessageHandler)
+        assert issubclass(obj, BaseMessageHandler)
         
         management.register_message_handler(obj, handler)
