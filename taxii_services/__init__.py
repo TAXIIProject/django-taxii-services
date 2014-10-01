@@ -3,9 +3,6 @@
 
 __version__ = "0.1.2"
 
-# import django
-# django.setup()
-
 
 def register_admins(admin_list=None):
     """
