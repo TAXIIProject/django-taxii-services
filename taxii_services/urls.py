@@ -10,5 +10,5 @@ from django.contrib import admin
 admin.autodiscover()
 
 urlpatterns = patterns('',
-    url(r'([\w-]+)/$', 'taxii_services.views.service_router'),
-)
+                       url(r'([\w-]+)/$', 'taxii_services.views.service_router'),
+                       )

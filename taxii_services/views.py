@@ -1,7 +1,7 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-#This only contains basic views for basic TAXII Services
+# This only contains basic views for basic TAXII Services
 
 from .exceptions import StatusMessageException
 from .util import request_utils, response_utils
@@ -27,7 +27,8 @@ TAXII_10_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_10_SCHEMA
 TAXII_11_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_11_SCHEMA), tm11.get_message_from_xml)
 
 xtct_map = {VID_TAXII_XML_10: TAXII_10_ParseTuple,
-            VID_TAXII_XML_11: TAXII_11_ParseTuple }
+            VID_TAXII_XML_11: TAXII_11_ParseTuple}
+
 
 @csrf_exempt
 def service_router(request, path, do_validate=True):
@@ -35,7 +36,7 @@ def service_router(request, path, do_validate=True):
     Takes in a request, path, and TAXII Message,
     and routes the taxii_message to the Service Handler.
     """
-    
+
     if request.method != 'POST':
         raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request method was not POST!')
 
@@ -53,14 +54,14 @@ def service_router(request, path, do_validate=True):
             if not result.valid:
                 raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not schema valid: %s' % [err for err in result.error_log])
         except XMLSyntaxError as e:
-            raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not well-formed XML: %s' % str(e) )
+            raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not well-formed XML: %s' % str(e))
 
     try:
         taxii_message = parse_tuple.parser(request.body)
     except tm11.UnsupportedQueryException as e:
         # TODO: Is it possible to give the real message id?
         # TODO: Is it possible to indicate which query aspects are supported?
-        #       This might require a change in how libtaxii works
+        # This might require a change in how libtaxii works
         raise StatusMessageException('0',
                                      ST_UNSUPPORTED_QUERY)
 
@@ -81,25 +82,24 @@ def service_router(request, path, do_validate=True):
     try:
         response_message = handler_class.handle_message(service, taxii_message, request)
     except StatusMessageException:
-        raise # The handler_class has intentionally raised this
-    except Exception as e: # Something else happened
+        raise  # The handler_class has intentionally raised this
+    except Exception as e:  # Something else happened
         msg = "There was a failure while executing the message handler"
-        if settings.DEBUG: #Add the stacktrace
+        if settings.DEBUG:  # Add the stacktrace
             msg += "\r\n" + traceback.format_exc()
 
         raise StatusMessageException(taxii_message.message_id,
                                      ST_FAILURE,
-                                     msg )
+                                     msg)
 
     try:
         response_message.message_type
     except AttributeError as e:
-        msg = "The message handler (%s) did not return a TAXII Message!" % \
-              handler_class
+        msg = "The message handler (%s) did not return a TAXII Message!" % handler_class
         if settings.DEBUG:
-            msg += (  "\r\n The returned value was: %s (class=%s)" % \
-                     (response_message, response_message.__class__.__name__)  )
-        
+            msg += ("\r\n The returned value was: %s (class=%s)" %
+                    (response_message, response_message.__class__.__name__))
+
         raise StatusMessageException(taxii_message.message_id,
                                      ST_FAILURE,
                                      msg)
@@ -114,4 +114,3 @@ def service_router(request, path, do_validate=True):
     response_headers = handlers.get_headers(vid, request.is_secure())
 
     return handlers.HttpResponseTaxii(response_message.to_xml(pretty_print=True), response_headers)
-    

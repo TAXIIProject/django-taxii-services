@@ -8,6 +8,7 @@ from copy import deepcopy
 from .constants import *
 from taxii_services.models import *
 
+
 def get_message_from_client_response(resp, in_response_to):
     """ helper func"""
 
@@ -152,6 +153,7 @@ def add_inbox_service():
                            destination_collection_status=PROHIBITED[0],
                            accept_all_content=True)
     inbox_3.save()
+
 
 def add_poll_service():
     prh = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.PollRequestHandler')

@@ -7,11 +7,12 @@ import json
 
 _STD_INDENT = '  '
 
+
 def pretty_format(d, indent=''):
     """
     Pretty prints a dictionary.
     """
-    
+
     str_ = "{\n"
     for k, v in d.iteritems():
         if isinstance(v, dict):
@@ -28,6 +29,7 @@ def pretty_format(d, indent=''):
     str_ += indent + "}, \n"
     return str_
 
+
 def split_tag(tag):
     if '}' in tag:
         parts = tag[1:].split('}')
@@ -36,12 +38,12 @@ def split_tag(tag):
     else:
         namespace = None
         name = tag
-    
+
     return name, namespace
 
 # data is a dict that stores ALL THE INFOS
 # Each item is basically this:
-# {'<non-namespaced element name>': 
+# {'<non-namespaced element name>':
 #          {
 #              'children': None or dict of children,
 #              'has_text': True or False (if the element can have text data)
@@ -49,6 +51,7 @@ def split_tag(tag):
 #          }
 # }
 # Then ... the trick is to turn this into code!
+
 
 def add_element_to_dict(elem, d):
     name, namespace = split_tag(elem.tag)
@@ -59,10 +62,10 @@ def add_element_to_dict(elem, d):
         d[name]['namespace'] = namespace
         d[name]['prefix'] = elem.prefix
         d[name]['children'] = {}
-    
+
     if elem.text and elem.text.strip() != '':
         d[name]['has_text'] = True
-    
+
     # Add the attributes as children
     for attribute in elem.keys():
         print '  looking at ', attribute
@@ -70,22 +73,23 @@ def add_element_to_dict(elem, d):
         has_text = True
         children = {}
         attr_prefix = None
-        if attr_namespace: # Look up the prefix in a horribly inefficient manner...
+        if attr_namespace:  # Look up the prefix in a horribly inefficient manner...
             for k, v in elem.nsmap.iteritems():
                 if v == attr_namespace:
                     attr_prefix = k
                     break
-            
-        d[name]['children']['@' + attr_name] = {'has_text': True, 
-                                                'namespace': attr_namespace, 
-                                                'prefix': attr_prefix, 
+
+        d[name]['children']['@' + attr_name] = {'has_text': True,
+                                                'namespace': attr_namespace,
+                                                'prefix': attr_prefix,
                                                 'children': children}
-    
+
     # Add the element children as children
     for child in elem.iterchildren(tag=etree.Element):
         if child is None:
             continue
         add_element_to_dict(child, d[name]['children'])
+
 
 def create_query_handler(name, data, tev):
     outfile = name + '.py'
@@ -109,20 +113,20 @@ register_query_handler(%s, name="%s")
     f.flush()
     f.close()
 
+
 def main():
     parser = argparse.ArgumentParser(description='XML Query Extension Generator')
     parser.add_argument('--infile', dest='infile', required=True, help="The sample XML file to use for generating the BaseXmlQueryHandler extension.")
     parser.add_argument('--tev', dest='tev', required=True, help="The targeting expression vocabulary this extension supports.")
     parser.add_argument('--name', dest='name', required=True, help="The name of the BaseXmlQueryHandler extension. Will be used for the output filename and class name.")
     args = parser.parse_args()
-    
+
     root = etree.parse(args.infile).getroot()
     data = {'root_context': {'children': {}}}
-    #nsmap = {}
     add_element_to_dict(root, data['root_context']['children'])
-    
+
     create_query_handler(args.name, data, args.tev)
-    
+
     print "Extension created in %s" % (args.name + '.py', )
 
 if __name__ == "__main__":

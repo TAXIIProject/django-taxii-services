@@ -25,8 +25,8 @@ TAXII_11_HTTP_Headers = {'CONTENT_TYPE': 'application/xml',
                          'HTTP_X_TAXII_CONTENT_TYPE': VID_TAXII_XML_11,
                          'HTTP_X_TAXII_PROTOCOL': VID_TAXII_HTTP_10,
                          'HTTP_X_TAXII_SERVICES': VID_TAXII_SERVICES_11,
-                          'HTTP_ACCEPT': 'application/xml',
-                          'HTTP_X_TAXII_ACCEPT': VID_TAXII_XML_11}
+                         'HTTP_ACCEPT': 'application/xml',
+                         'HTTP_X_TAXII_ACCEPT': VID_TAXII_XML_11}
 
 TAXII_10_HTTPS_Headers = {'CONTENT_TYPE': 'application/xml',
                           'HTTP_X_TAXII_CONTENT_TYPE': VID_TAXII_XML_10,
@@ -39,8 +39,8 @@ TAXII_10_HTTP_Headers = {'CONTENT_TYPE': 'application/xml',
                          'HTTP_X_TAXII_CONTENT_TYPE': VID_TAXII_XML_10,
                          'HTTP_X_TAXII_PROTOCOL': VID_TAXII_HTTP_10,
                          'HTTP_X_TAXII_SERVICES': VID_TAXII_SERVICES_10,
-                          'HTTP_ACCEPT': 'application/xml',
-                          'HTTP_X_TAXII_ACCEPT': VID_TAXII_XML_10}
+                         'HTTP_ACCEPT': 'application/xml',
+                         'HTTP_X_TAXII_ACCEPT': VID_TAXII_XML_10}
 
 stix_watchlist_111 = '''
 <stix:STIX_Package

@@ -17,8 +17,8 @@ DB_PATH = os.path.join(os.path.dirname(SITE_ROOT), 'test.db')
 
 DATABASES = {
     'default': {
-        'ENGINE':   'django.db.backends.sqlite3',
-        'NAME':     DB_PATH,
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': DB_PATH,
     }
 }
 

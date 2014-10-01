@@ -8,16 +8,17 @@ import datetime
 import dateutil
 from dateutil.tz import tzutc
 
+
 class PollRequestProperties(object):
     """
     Holds a bunch of different items
     relating to fulfilling a PollRequest.
-    
+
     It's similar to a tm11.PollRequest object,
-    but holds some items specific to how 
+    but holds some items specific to how
     django-taxii-services does things
     """
-    
+
     def __init__(self):
         self.poll_request = None
         self.message_id = None
@@ -31,7 +32,7 @@ class PollRequestProperties(object):
         self.exclusive_begin_timestamp_label = None
         self.inclusive_end_timestamp_label = None
         self.delivery_paremeters = None
-    
+
     def get_db_kwargs(self):
         kwargs = {}
         if self.collection.type == CT_DATA_FEED:
@@ -42,17 +43,17 @@ class PollRequestProperties(object):
         if self.content_bindings:
             kwargs['content_binding__in'] = self.content_bindings
         return kwargs
-    
+
     @staticmethod
     def from_poll_request_11(poll_service, poll_request):
         prp = PollRequestProperties()
         prp.poll_request = poll_request
         prp.message_id = poll_request.message_id
         prp.collection = poll_service.validate_collection_name(poll_request.collection_name, poll_request.message_id)
-        
+
         if poll_request.subscription_id:
             try:
-                s = models.Subscription.objects.get(subscription_id = poll_request.subscription_id)
+                s = models.Subscription.objects.get(subscription_id=poll_request.subscription_id)
                 self.subscription = s
             except models.Subscription.DoesNotExist:
                 raise StatusMessageException(poll_request.message_id,
@@ -79,21 +80,23 @@ class PollRequestProperties(object):
             else:
                 prp.query_handler = None
             prp.delivery_parameters = pp.delivery_parameters
-        
-        if prp.collection.type == CT_DATA_FEED:#Only data feeds care about timestamp labels
+
+        if prp.collection.type == CT_DATA_FEED:  # Only data feeds care about timestamp labels
             current_datetime = datetime.datetime.now(tzutc())
-            
-            #If the request specifies a timestamp label in an acceptable range, use it. Otherwise, don't use a begin timestamp label
+
+            # If the request specifies a timestamp label in an acceptable range, use it.
+            # Otherwise, don't use a begin timestamp label
             if poll_request.exclusive_begin_timestamp_label:
                 pr_ebtl = poll_request.exclusive_begin_timestamp_label
                 if pr_ebtl < current_datetime:
                     prp.exclusive_begin_timestamp_label = poll_request.exclusive_begin_timestamp_label
-            
-            #Use either the specified end timestamp label; or the current time iff the specified end timestmap label is after the current time
+
+            # Use either the specified end timestamp label;
+            # or the current time iff the specified end timestmap label is after the current time
             prp.inclusive_end_timestamp_label = current_datetime
             if poll_request.inclusive_end_timestamp_label:
                 pr_ietl = poll_request.inclusive_end_timestamp_label
                 if pr_ietl < current_datetime:
                     prp.inclusive_end_timestamp_label = poll_request.inclusive_end_timestamp_label
-        
+
         return prp

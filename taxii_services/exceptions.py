@@ -7,6 +7,7 @@ import libtaxii.messages_10 as tm10
 from libtaxii.constants import *
 from libtaxii.common import generate_message_id
 
+
 class StatusMessageException(Exception):
     """
     StatusMessageException is an exception that can be raised and can be caught by
@@ -28,12 +29,12 @@ class StatusMessageException(Exception):
         self.message = message
         self.status_detail = status_detail
         self.extended_headers = extended_headers
-    
+
     def get_status_message(self, format=VID_TAXII_XML_11):
         """
-        Creates a TAXII Status Message in TAXII 1.1 or TAXII 1.0 
+        Creates a TAXII Status Message in TAXII 1.1 or TAXII 1.0
         depending on the value of the format argument
-        
+
         Arguments:
             format (string) - The format of the Status Message
         """
@@ -43,29 +44,29 @@ class StatusMessageException(Exception):
             return self.to_status_message_10()
         else:
             raise ValueError("Unknown value for format: %s" % format)
-    
+
     def to_status_message_11(self):
         """
-        Creates a TAXII 1.1 Status Message based on the 
+        Creates a TAXII 1.1 Status Message based on the
         properties of this object
         """
-        sm = tm11.StatusMessage(message_id = generate_message_id(), 
-                                in_response_to = self.in_response_to,
-                                extended_headers = self.extended_headers,
-                                status_type = self.status_type,
-                                status_detail = self.status_detail,
-                                message = self.message)
+        sm = tm11.StatusMessage(message_id=generate_message_id(),
+                                in_response_to=self.in_response_to,
+                                extended_headers=self.extended_headers,
+                                status_type=self.status_type,
+                                status_detail=self.status_detail,
+                                message=self.message)
         return sm
-    
+
     def to_status_message_10(self):
         """
-        Creates a TAXII 1.0 Status Message based on the 
+        Creates a TAXII 1.0 Status Message based on the
         properties of this object
         """
-        sm = tm10.StatusMessage(message_id = generate_message_id(),
-                                in_response_to = self.in_response_to,
-                                extended_headers = self.extended_headers,
-                                status_type = self.status_type,
-                                status_detail = str(self.status_detail),
-                                message = self.message)
+        sm = tm10.StatusMessage(message_id=generate_message_id(),
+                                in_response_to=self.in_response_to,
+                                extended_headers=self.extended_headers,
+                                status_type=self.status_type,
+                                status_detail=str(self.status_detail),
+                                message=self.message)
         return sm

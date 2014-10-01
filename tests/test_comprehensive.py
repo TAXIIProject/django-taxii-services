@@ -40,7 +40,7 @@ def make_request(path='/', post_data=None, header_dict=None,
     if resp.status_code != expected_code:
         msg = resp.content
         raise ValueError("Response code was not %s. Was: %s.\r\n%s" %
-                         (str(expected_code), str(resp.status_code), msg) )
+                         (str(expected_code), str(resp.status_code), msg))
 
     msg = get_message_from_client_response(resp, '0')
 
@@ -117,11 +117,11 @@ class ProtocolTests(TestCase):
         - Other permutations in the future?
         """
 
-        #TODO: The responses could probably be checked better
-        #TODO: This whole thing can probably be done better,
-        #      but it's probably sufficient for now
+        # TODO: The responses could probably be checked better
+        # TODO: This whole thing can probably be done better,
+        # but it's probably sufficient for now
 
-        #Tuples of services version / is_secure
+        # Tuples of services version / is_secure
         http = False
         https = True
         tuples = ((VID_TAXII_SERVICES_11, https),
@@ -439,9 +439,9 @@ class PollRequestTests11(TestCase):
         # """
         # pp = tm11.PollParameters(query=tm11.Query(format_id='unsupported_format_id'))
         # pr = tm11.PollRequest(
-                # message_id = generate_message_id(),
-                # collection_name = 'default',
-                # poll_parameters = pp)
+        # message_id = generate_message_id(),
+        # collection_name = 'default',
+        # poll_parameters = pp)
         # msg = self.send_poll_request('/test_poll_1/',
         # VID_TAXII_XML_11, pr, status_type=ST_UNSUPPORTED_QUERY, sd_keys=[SD_SUPPORTED_QUERY])
 
