@@ -7,7 +7,7 @@ import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
 from functools import wraps
-import response_utils
+
 from taxii_services.exceptions import StatusMessageException
 
 # 1. Validate request (headers, POST) [common]

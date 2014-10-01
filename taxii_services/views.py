@@ -4,7 +4,7 @@
 # This only contains basic views for basic TAXII Services
 
 from .exceptions import StatusMessageException
-from .util import request_utils, response_utils
+from .util import request_utils
 import handlers
 
 import libtaxii.messages_11 as tm11
