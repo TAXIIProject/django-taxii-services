@@ -13,7 +13,7 @@ from libtaxii.constants import *
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 from itertools import chain
@@ -181,6 +181,14 @@ class _Handler(models.Model):
         Returns:
             An handle on the handler class
         """
+
+        if (self.module_name is None or
+            len(self.module_name) == 0 or
+            self.class_name is None or
+            len(self.class_name) == 0):
+
+            self.clean()
+
         module = import_module(self.module_name)
         handler_class = getattr(module, self.class_name)
         return handler_class
@@ -189,7 +197,11 @@ class _Handler(models.Model):
         """
         Given the handler, do lots of validation.
         """
+
         module_name, class_name = self.handler.rsplit('.', 1)
+        self.module_name = module_name
+        self.class_name = class_name
+
         try:
             module = import_module(module_name)
         except:
@@ -206,13 +218,10 @@ class _Handler(models.Model):
             try:
                 hf = getattr(handler_class, f)
             except:
-                raise ValidationError('Class (%s) does not have a %s function defined!' % (module_name, f))
+                raise ValidationError('Class (%s) does not have a %s function defined!' % (handler_class, f))
 
             if str(hf).startswith("<unbound"):
                 raise ValidationError("Function %s does not appear to be a @staticmethod or @classmethod!" % f)
-
-        self.module_name = module_name
-        self.class_name = class_name
 
         try:
             self.description = handler_class.__doc__.strip()
@@ -223,7 +232,6 @@ class _Handler(models.Model):
             # TODO: Check the version on load
             self.version = handler_class.version
         except:
-            print 'There was a problem getting the version! Does the class have a static version property?'
             raise ValidationError('Could not read version from class (%s). Does the class have a static version property?' % handler_class)
 
         return handler_class  # This is used by subclasses to extract subclass-specific attrs
@@ -233,6 +241,20 @@ class _Handler(models.Model):
 
     class Meta:
         ordering = ['name']
+
+
+class _Tag(models.Model):
+    """
+    Not to be used by users directly. Defines common tags used for certain other models.
+    """
+    tag = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+    value = models.CharField(max_length=MAX_NAME_LENGTH)
+
+    def __unicode__(self):
+        s = self.tag
+        if self.value is not None:
+            s += " (%s)" % self.value
+        return s
 
 
 class _TaxiiService(models.Model):
@@ -309,6 +331,10 @@ class _TaxiiService(models.Model):
 
     class Meta:
         ordering = ['name']
+
+
+class CapabilityModule(_Tag):
+    pass
 
 
 class CollectionManagementService(_TaxiiService):
@@ -1291,8 +1317,11 @@ class PollService(_TaxiiService):
 
         return collection
 
-    def get_query_handler(self, query, in_response_to):
+    def get_supported_query(self, query, in_response_to):
         """
+        This function follows this workflow to find a matching query handler:
+        TODO: Once the function works, document what it does
+
         Arguments:
             query - tdq.DefaultQuery object
 
@@ -1303,74 +1332,53 @@ class PollService(_TaxiiService):
             A StatusMessageException if a QueryHandler was not found
         """
 
-        # First, filter down by Targeting Expression ID
-        potential_matches = self.supported_queries.filter(query_handler__targeting_expression_id=query.targeting_expression_id)
+        # 1. filter down by Targeting Expression ID
+        tev_kwargs = {'query_handler__targeting_expression_ids__value': query.targeting_expression_id}
+        potential_matches = self.supported_queries.filter(**tev_kwargs)
 
         if len(potential_matches) == 0:
-            exprs = [sq.query_handler.targeting_expression_id for sq in self.supported_queries.all()]
+            exprs = []
+            for sq in self.supported_queries.all():
+                for tev in sq.query_handler.targeting_expression_ids.all():
+                    exprs.append(tev.value)
+
             raise StatusMessageException(in_response_to,
                                          ST_UNSUPPORTED_TARGETING_EXPRESSION_ID,
-                                         status_detail={SD_TARGETING_EXPRESSION_ID: exprs})
+                                         status_detail={'TARGETING_EXPRESSION_ID': exprs})
 
-        # Build the list of targets and capability modules used
-        # Use sets so DB queries are not repeated
+        # Build the list of unique targets and capability modules used in the query
         targets = set([])  # Targets
         cms = set([])  # Capability Modules
         to_search = [query.criteria]
+
         while len(to_search) > 0:
             item = to_search.pop()
             try:
-                target_list.add(item.target)
-                cm_list.add(item.test.capability_id)
+                targets.add(item.target)
+                cms.add(item.test.capability_id)
             except AttributeError:
                 to_search.extend(item.criteria)
                 to_search.extend(item.criterion)
 
-        # Second, filter further by all capability modules used
         for cm in cms:
-            potential_matches = potential_matches.filter(query_handler__capability_modules__contains=cm)
-            if len(potential_matches) == 0:  # Filtering on this CM reduced possible query handlers to 0
-                # TODO: Get a list of supported capability modules for the response
-                supported_cms = []
+            potential_matches = potential_matches.filter(query_handler__capability_modules__value=cm)
+            if len(potential_matches) == 0:
                 raise StatusMessageException(in_response_to,
-                                             UNSUPPORTED_CAPABILITY_MODULE,
-                                             status_detail={SD_CAPABILITY_MODULE: supported_cms})
+                                             ST_UNSUPPORTED_CAPABILITY_MODULE,
+                                             status_detail={})
 
-        # Iterate over all Targets
-        # and checks if they are supported by
-        # each Supported Query
+        # Targets have to be checked in software (for now ... ?)
+        for target in targets:
+            for potential_match in potential_matches:
+                if not potential_match.query_handler.get_handler_class().is_target_supported(target):
+                    potential_matches.remove(potential_match)
+                    if len(potential_matches) == 0:
+                        raise StatusMessageException(in_response_to,
+                                                     ST_UNSUPPORTED_TARGETING_EXPRESSION,
+                                                     status_detail={})
 
-        # If a Target isn't supported by any potential match,
-        # let the user know that target isn't supported
-
-        matched_targets = set()  # Targets with at least one match
-        for potential_match in potential_matches:
-            # TODO:
-            # There's a case where where you _could_ have
-            # two handlers that support the target list
-            # The TODO is to pick between them
-            # intelligently
-            match = True
-            for target in target_list:
-                if not potential_match.is_target_supported(target):
-                    match = False
-                    break
-                else:
-                    matched_targets.add(target)
-            if match:
-                return potential_match
-
-        # No matches. At least one target won't be in
-        # matched targets
-
-        unmatched_targets = target_list - matched_targets
-        if len(unmatched_targets) == 0:  # Not sure this can happen, but this code isn't tested so who knows
-            raise ValueError("There were 0 ummatched targets, but no match was returned")
-
-        sd = {}  # TODO: Fill this in with useful information
-        raise StatusMessageException(in_response_to,
-                                     ST_UNSUPPORTED_TARGETING_EXPRESSION,
-                                     status_detail=sd)
+        # We've found matches. Arbitrarily pick the first one.
+        return potential_matches[0]
 
     def to_service_instances_11(self):
         service_instances = super(PollService, self).to_service_instances_11()
@@ -1402,25 +1410,71 @@ class QueryHandler(_Handler):
     takes two arguments: A query and a content block and returns
     True if the Content Block passes the query and False otherwise.
     """
-    handler_functions = ['execute_query']
 
-    targeting_expression_id = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
-    capability_modules = models.CharField(max_length=MAX_NAME_LENGTH, editable=False)
+    # TODO: Update this list
+    handler_functions = ['get_supported_cms',
+                         'get_supported_tevs',
+                         #'is_scope_supported',
+                         'is_target_supported',
+                         'filter_content',
+                         'update_db_kwargs']
+
+    targeting_expression_ids = models.ManyToManyField('TargetingExpressionId', editable=False, blank=True, null=True)
+    capability_modules = models.ManyToManyField('CapabilityModule', editable=False, blank=True, null=True)
 
     def clean(self):
         handler_class = super(QueryHandler, self).clean()
 
-        try:
-            self.targeting_expression_id = handler_class.get_supported_targeting_expression()
-        except:
-            raise ValidationError('There was a problem getting the supported targeting expression: %s' %
-                                  str(sys.exc_info()))
+    def is_tev_supported(self, tev):
+        """
+        tev is short for targeting expression vocabulary
+        :param tev: (string) A targeting expression vocabulary identifier (ID)
+        :return: A SupportInfo object indicating whether the tev is supported.
+        """
+        return self.get_handler_class().is_tev_supported(tev)
 
-        try:
-            self.capability_modules = handler_class.get_supported_capability_modules()
-        except:
-            raise ValidationError('There was a problem getting the list of supported capability modules: %s' %
-                                  str(sys.exc_info()))
+    def is_te_supported(self, te):
+        """
+        :param te: (string) A targeting expression
+        :return: A SupportInfo object indicating whether the targeting expression is supported
+        """
+        return self.get_handler_class().is_te_supported(te)
+
+    def is_cm_supported(self, cm):
+        """
+        :param cm: (string) A Capability Module ID
+        :return: A SupportInfo object indicating whether the capability module is supported
+        """
+        return self.get_handler_class().is_cm_supported(cm)
+
+    class Meta:
+        verbose_name = "Query Handler"
+
+
+#class QueryHandlerCapabilityModule(models.Model):
+#    """
+#    Assists in managing the QueryHandler/CapabilityModule relationships
+#    """
+#    query_handler = models.ForeignKey('QueryHandler')
+#    capability_module = models.ForeignKey('CapabilityModule')
+
+
+def update_query_handler(sender, **kwargs):
+    """
+    When a QueryHandler gets created, CapabilityModules is a M2M and can't
+    be saved when the model is saved.
+    """
+    instance = kwargs['instance']
+    handler_class = instance.get_handler_class()
+    for cm in handler_class.get_supported_cms():
+        cm_obj = CapabilityModule.objects.get(value=cm)
+        instance.capability_modules.add(cm_obj)
+
+    for tev in handler_class.get_supported_tevs():
+        tev_obj = TargetingExpressionId.objects.get(value=tev)
+        instance.targeting_expression_ids.add(tev_obj)
+
+post_save.connect(update_query_handler, sender=QueryHandler)
 
 
 class ResultSet(models.Model):
@@ -1576,31 +1630,87 @@ class Subscription(models.Model):
 
 class SupportedQuery(models.Model):
     """
-    QueryInformation maps most directly to the
-    Targeting Expression Info field in the TAXII Default
-    Query spec.
+    A SupportedQuery Object represents a QueryHandler plus
+    an (optional, user-configurable) scope restriction of that
+    QueryHandler.
     """
     name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
 
     query_handler = models.ForeignKey('QueryHandler')
-    # preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
-    # allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
+    use_handler_scope = models.BooleanField(default=True)
+    preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
+    allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
-    # TODO: Need to limit preferred/allowed scope choices by the selected QueryHandler
+    def is_query_supported(self, query):
+        """
+        :param query: a libtaxii.taxii_default_query.DefaultQuery object
+        :return: A SupportInfo object indicating whether the Query is supported.
+        """
+
+        # If the Targeting Expression Vocabulary Identifier is not supported, indicate that
+        tev_supp_info = self.is_tev_supported(query.targeting_expression_id)
+        if tev_supp_info.is_supported is False:
+            return tev_supp_info
+
+        # Build the list of unique targets and capability modules used in the query
+        targets = set([])  # Targets
+        cms = set([])  # Capability Modules
+        to_search = [query.criteria]
+
+        while len(to_search) > 0:
+            item = to_search.pop()
+            try:
+                targets.add(item.target)
+                cms.add(item.test.capability_id)
+            except AttributeError:
+                to_search.extend(item.criteria)
+                to_search.extend(item.criterion)
+
+        for cm in cms:
+            cm_supp_info = self.is_cm_supported(cm)
+            if cm_supp_info.is_supported is False:
+                return cm_supp_info
+
+        for target in targets:
+            tgt_supp_info = self.is_target_supported(target)
+            if tgt_supp_info.is_supported is False:
+                return tgt_supp_info
+
+        return SupportInfo(is_supported=True)
+
+    def is_tev_supported(self, tev):
+        """
+        :param tev: (string) A targeting expression vocabulary id
+        :return: A SupportInfo object indicating whether the targeting expression vocabulary ID is supported
+        """
+
+        # Note: This function primarily exists to provide a future hook
+
+        return self.query_handler.is_tev_supported()
+
+    def is_cm_supported(self, cm):
+        """
+        :param cm: (string) A capability module id
+        :return: a SupportInfo object indicating whether the capability module id is supported
+        """
+
+        # Note: This function primarily exists to provide a future hook
+
+        return self.query_handler.is_cm_supported()
 
     def is_target_supported(self, target):
         """
-        Arguments:
-            target (str) - A targeting expression
-        Returns:
-            a SupportInfo object indicating whether the targeting expression is supported
+        :param target: (string) A target
+        :return: A SupportInfo object indicating whether the target is supported
         """
-        # TODO: Actually implement this method
-        return SupportInfo(is_supported=True)
+        if self.use_handler_scope is True:
+            return self.query_handler.is_target_supported(target)
+        else:
+            raise NotImplementedError("UI Based restrictions of query handler not implemented yet!")
 
     def to_query_info_11(self):
         """
@@ -1631,6 +1741,10 @@ class SupportedQuery(models.Model):
     class Meta:
         verbose_name = "Supported Query"
         verbose_name_plural = "Supported Queries"
+
+
+class TargetingExpressionId(_Tag):
+    pass
 
 
 class Validator(_Handler):

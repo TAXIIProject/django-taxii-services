@@ -43,24 +43,44 @@ def make_request(path='/', post_data=None, header_dict=None,
                          (str(expected_code), str(resp.status_code), msg))
 
     msg = get_message_from_client_response(resp, '0')
+    msg_xml = msg.to_xml(pretty_print=True)
+    if len(msg_xml) > 4096:
+        msg_xml = "MESSAGE WAS TOO BIG TO PRINT: %s" % len(msg_xml)
 
     if (response_msg_type and
         msg.message_type != response_msg_type):
         raise ValueError("Incorrect message type sent in response. Expected: %s. Got: %s.\r\n%s" %
-                         (response_msg_type, msg.message_type, msg.to_xml(pretty_print=True)))
+                         (response_msg_type, msg.message_type, msg_xml))
 
     if st:
         if msg.status_type != st:
             raise ValueError("Incorrect status type. Expected %s got %s)\r\n%s" %
-                             (st, msg.status_type, msg.to_xml(pretty_print=True)))
+                             (st, msg.status_type, msg_xml))
 
     if sd_keys:
         for key in sd_keys:
             if key not in msg.status_detail:
                 raise ValueError("SD Key not present: %s\r\n%s" %
-                                 (key, msg.to_xml(pretty_print=True)))
+                                 (key, msg_xml))
 
     return msg
+
+
+def create_poll_w_query(relationship, params, target, collection='default'):
+
+    test = tdq.Test(capability_id=CM_CORE,
+                    relationship=relationship,
+                    parameters=params)
+
+    criterion = tdq.Criterion(target=target, test=test)
+    criteria = tdq.Criteria(OP_AND, criterion=[criterion])
+    q = tdq.DefaultQuery(CB_STIX_XML_111, criteria)
+    pp = tm11.PollParameters(query=q)
+    pr = tm11.PollRequest(message_id=generate_message_id(),
+                          collection_name=collection,
+                          poll_parameters=pp)
+
+    return pr
 
 
 class ProtocolTests(TestCase):
@@ -352,6 +372,7 @@ class PollRequestTests11(TestCase):
         settings.DEBUG = True
         add_basics()
         add_poll_service()
+        add_test_content(collection='default')
 
     def test_01(self):
         """
@@ -374,7 +395,7 @@ class PollRequestTests11(TestCase):
         Test a begin TS later than an end TS.
         """
         begin_ts = datetime.now(tzutc())
-        end_ts = begin_ts - timedelta(days=-7)
+        end_ts = begin_ts - timedelta(days=7)
 
         pp = tm11.PollParameters()
         pr = tm11.PollRequest(message_id=generate_message_id(),
@@ -490,13 +511,12 @@ class PollRequestTests11(TestCase):
 
     def test_10(self):
         """
-        Test a query. Should match just the APT1 report.
+        Test a query with an unsupported Capability Module
         """
-        test = tdq.Test(capability_id=tdq.CM_CORE,
+        test = tdq.Test(capability_id='hello',
                         relationship=R_EQUALS,
-                        parameters={P_VALUE: 'Unit 61398', P_MATCH_TYPE: 'case_sensitive_string'})
-        tgt = 'STIX_Package/Threat_Actors/Threat_Actor/Identity/' \
-              'Specification/PartyName/OrganisationName/SubDivisionName'
+                        parameters={P_VALUE: 'x', P_MATCH_TYPE: 'case_sensitive_string'})
+        tgt = '**'
         criterion = tdq.Criterion(target=tgt, test=test)
         criteria = tdq.Criteria(OP_AND, criterion=[criterion])
         q = tdq.DefaultQuery(CB_STIX_XML_111, criteria)
@@ -504,11 +524,95 @@ class PollRequestTests11(TestCase):
         pr = tm11.PollRequest(message_id=generate_message_id(),
                               collection_name='default',
                               poll_parameters=pp)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_STATUS_MESSAGE,
+                           st=ST_UNSUPPORTED_CAPABILITY_MODULE,
+                           sd_keys=[SD_CAPABILITY_MODULE])
+
+    def test_12(self):
+        """
+        Test a query with an invalid target
+        """
+        test = tdq.Test(capability_id=CM_CORE,
+                        relationship=R_EQUALS,
+                        parameters={P_VALUE: 'x', P_MATCH_TYPE: 'case_insensitive_string'})
+        tgt = 'STIX_Pakkage/**'
+        criterion = tdq.Criterion(target=tgt, test=test)
+        criteria = tdq.Criteria(OP_AND, criterion=[criterion])
+        q = tdq.DefaultQuery(CB_STIX_XML_111, criteria)
+        pp = tm11.PollParameters(query=q)
+        pr = tm11.PollRequest(message_id=generate_message_id(),
+                              collection_name='default',
+                              poll_parameters=pp)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_STATUS_MESSAGE,
+                           st=ST_UNSUPPORTED_TARGETING_EXPRESSION)
+
+    def test_13(self):
+        """
+        Test a query with an unsupported Targeting Expression Vocabulary
+        """
+        test = tdq.Test(capability_id=CM_CORE,
+                        relationship=R_EQUALS,
+                        parameters={P_VALUE: 'x', P_MATCH_TYPE: 'case_insensitive_string'})
+        tgt = '**'
+        criterion = tdq.Criterion(target=tgt, test=test)
+        criteria = tdq.Criteria(OP_AND, criterion=[criterion])
+        q = tdq.DefaultQuery('SOMETHING_UNSUPPORTED', criteria)
+        pp = tm11.PollParameters(query=q)
+        pr = tm11.PollRequest(message_id=generate_message_id(),
+                              collection_name='default',
+                              poll_parameters=pp)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_STATUS_MESSAGE,
+                           st=ST_UNSUPPORTED_TARGETING_EXPRESSION_ID,
+                           sd_keys=[SD_TARGETING_EXPRESSION_ID])
+
+    def test_14(self):
+        """
+        Test a query. Should match just the APT1 report.
+        """
+
+        tgt = 'STIX_Package/Threat_Actors/Threat_Actor/Identity/' \
+              'Specification/PartyName/OrganisationName/SubDivisionName'
+
+        params = {P_VALUE: 'Unit 61398', P_MATCH_TYPE: 'case_sensitive_string'}
+
+        pr = create_poll_w_query(R_EQUALS, params, tgt)
 
         msg = make_request('/test_poll_1/',
                            pr.to_xml(),
                            get_headers(VID_TAXII_SERVICES_11, False),
                            MSG_POLL_RESPONSE)
+        if len(msg.content_blocks) != 1:
+            raise ValueError('Got %s CBs' % len(msg.content_blocks))
+        id_ = 'threat-actor-d5b62b58-df7c-46b1-a435-4d01945fe21d'
+        if id_ not in msg.content_blocks[0].content:
+            raise ValueError('string not found in result: ', id_)
+
+    def test_15(self):
+        """
+        Query - test the equals / case_insensitive_string relationship
+                and single-field wildcard
+        """
+
+        tgt = 'STIX_Package/STIX_Header/*'
+        params = {P_VALUE:'Example watchlist that contains IP information.',
+                  P_MATCH_TYPE: 'case_insensitive_string'}
+
+        pr = create_poll_w_query(R_EQUALS, params, tgt)
+
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_POLL_RESPONSE)
+
         if len(msg.content_blocks) != 1:
             raise ValueError('Got %s CBs' % len(msg.content_blocks))
 

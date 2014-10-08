@@ -21,24 +21,34 @@ def register_message_handler(message_handler, name=None, retry=True):
     this method when Django's post_syncdb signal is called.
 
     Args:
-        message_handler (class) - The message handler to be registered
+        message_handler (class or string) - The message handler to be registered
         name (str) - The name of the message handler to be registered
         retry (bool) - If registration fails, whether or not to retry later
     """
     try:
-        module = message_handler.__module__
-        class_ = message_handler.__name__
-        if not name:
-            name = str(class_)
-        handler_string = module + "." + class_
+        if isinstance(message_handler, basestring):
+            handler_string = message_handler
+            if name is None:
+                name = handler_string
+        else:  # Try it as a class
+            module = message_handler.__module__
+            class_ = message_handler.__name__
+            handler_string = module + "." + class_
+            if name is None:
+                name = str(class_)
+
         mh, created = MessageHandler.objects.get_or_create(handler=handler_string)
         mh.name = name
         mh.clean()
         mh.save()
-    except (AppRegistryNotReady, DatabaseError) as dbe:  # Assume this is because DB isn't set up yet
+        # print "saved", message_handler
+    except DatabaseError as dbe:  # Assume this is because DB isn't set up yet
         if retry:
             message_handlers_to_retry.append((message_handler, name))
+            # print "retry", message_handler
+            print dbe.__class__
         else:
+            # print "raise", message_handler
             raise
 
 
@@ -52,22 +62,28 @@ def register_query_handler(query_handler, name=None, retry=True):
     this method when Django's post_syncdb signal is called.
 
     Args:
-        query_handler (class) - The message handler to be registered
+        query_handler (class or string) - The message handler to be registered
         name (str) - The name of the message handler to be registered
         retry (bool) - If registration fails, whether or not to retry later
     """
-
     try:
-        module = query_handler.__module__
-        class_ = query_handler.__name__
-        if not name:
-            name = str(class_)
-        handler_string = module + "." + class_
+        if isinstance(query_handler, basestring):
+            handler_string = query_handler
+            if name is None:
+                name = handler_string
+        else:  # Try it as a class
+            module = query_handler.__module__
+            class_ = query_handler.__name__
+            handler_string = module + '.' + class_
+            if name is None:
+                name = str(class_)
+
+        # TODO: This might not be the most efficient method of registering query handlers
         qh, created = QueryHandler.objects.get_or_create(handler=handler_string)
         qh.name = name
         qh.clean()
         qh.save()
-    except (AppRegistryNotReady, DatabaseError) as dbe:  # Assume this is because DB isn't set up yet
+    except DatabaseError as dbe:  # Assume this is because DB isn't set up yet
         if retry:
             query_handlers_to_retry.append((query_handler, name))
         else:
@@ -86,6 +102,7 @@ def retry_handler_registration(sender, **kwargs):
 
     while len(message_handlers_to_retry):
         mh = message_handlers_to_retry.pop()
+        print "retrying", mh[0]
         register_message_handler(mh[0], mh[1], retry=False)
 
 # Leaving the sender blank is probably not right, but

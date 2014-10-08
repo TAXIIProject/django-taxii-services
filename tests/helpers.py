@@ -7,6 +7,7 @@ import libtaxii.messages_11 as tm11
 from copy import deepcopy
 from .constants import *
 from taxii_services.models import *
+import os
 
 
 def get_message_from_client_response(resp, in_response_to):
@@ -79,6 +80,39 @@ def add_message_handlers():
     taxii_services.register_message_handlers()
 
 
+def add_query_basics():
+    cm_list = {'Core': CM_CORE,
+               'Regex': CM_REGEX,
+               'Timestamp': CM_TIMESTAMP}
+
+    for k, v in cm_list.iteritems():
+        cm = CapabilityModule(tag=k, value=v)
+        cm.save()
+
+    tev_list = {'STIX 1.0': CB_STIX_XML_10,
+                'STIX 1.0.1': CB_STIX_XML_101,
+                'STIX 1.1': CB_STIX_XML_11,
+                'STIX 1.1.1': CB_STIX_XML_111}
+
+    for k, v in tev_list.iteritems():
+        tev = TargetingExpressionId(tag=k, value=v)
+        tev.save()
+
+
+def add_query_handlers():
+    import taxii_services
+    taxii_services.register_query_handlers()
+
+
+def add_supported_queries():
+    qh = QueryHandler.objects.get(handler='taxii_services.StixXml111QueryHandler')
+    sq = SupportedQuery(name='All STIX 1.1.1',
+                        description='tmp description',
+                        query_handler=qh,
+                        use_handler_scope=True)
+    sq.save()
+
+
 def add_collections():
     dc = DataCollection(name='default',
                         description='Test collection',
@@ -93,6 +127,9 @@ def add_basics():
     add_message_bindings()
     add_content_bindings()
     add_message_handlers()
+    add_query_basics()
+    add_query_handlers()
+    add_supported_queries()
     add_content_bindings()
     add_collections()
 
@@ -156,8 +193,8 @@ def add_inbox_service():
 
 
 def add_poll_service():
-    prh = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.PollRequestHandler')
-    pfh = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.PollFulfillmentRequest11Handler')
+    prh = MessageHandler.objects.get(handler='taxii_services.PollRequestHandler')
+    pfh = MessageHandler.objects.get(handler='taxii_services.PollFulfillmentRequest11Handler')
 
     ps = PollService(name='Test Poll 1',
                      path='/test_poll_1/',
@@ -167,4 +204,33 @@ def add_poll_service():
                      max_result_size=5)
     ps.save()
     ps.data_collections = DataCollection.objects.filter(name='default')
+    sqs = SupportedQuery.objects.filter(query_handler__handler='taxii_services.StixXml111QueryHandler')
+    ps.supported_queries = sqs
     ps.save()
+
+
+def add_test_content(collection, filenames=None):
+    """
+
+    :param collection: The collection to add the content to
+    :param filenames: The filenames to add. By default adds everything in tests/test_content/
+    :return:
+    """
+
+    collection = DataCollection.objects.get(name=collection)
+
+    base_content_dir = 'tests/test_content/'
+    for content_dir in os.listdir(base_content_dir):
+        if content_dir == 'stix_111':
+            content_binding = CB_STIX_XML_111
+        else:
+            raise ValueError('Content Binding ID could not be inferred from directory!')
+
+        cbas = ContentBindingAndSubtype.objects.get(content_binding__binding_id=content_binding)
+        for filename in os.listdir(os.path.join(base_content_dir, content_dir)):
+            f = open(os.path.join(base_content_dir, content_dir, filename), 'r')
+            content = f.read()
+            cb = ContentBlock(content_binding_and_subtype=cbas, content=content)
+            cb.save()
+            collection.content_blocks.add(cb)
+            collection.save()

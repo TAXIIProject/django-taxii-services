@@ -28,10 +28,10 @@ class PollRequestProperties(object):
         self.content_bindings = None
         self.allow_asynch = None
         self.query = None
-        self.query_handler = None
+        self.supported_query = None
         self.exclusive_begin_timestamp_label = None
         self.inclusive_end_timestamp_label = None
-        self.delivery_paremeters = None
+        self.delivery_parameters = None
 
     def get_db_kwargs(self):
         kwargs = {}
@@ -54,7 +54,7 @@ class PollRequestProperties(object):
         if poll_request.subscription_id:
             try:
                 s = models.Subscription.objects.get(subscription_id=poll_request.subscription_id)
-                self.subscription = s
+                prp.subscription = s
             except models.Subscription.DoesNotExist:
                 raise StatusMessageException(poll_request.message_id,
                                              ST_NOT_FOUND,
@@ -65,9 +65,9 @@ class PollRequestProperties(object):
             prp.allow_asynch = False
             prp.query = s.query
             if prp.query:
-                prp.query_handler = poll_service.get_query_handler(prp.query, prp.message_id)
+                prp.supported_query = poll_service.get_supported_query(prp.query, prp.message_id)
             else:
-                prp.query_handler = None
+                prp.supported_query = None
             prp.delivery_parameters = s.delivery_parameters
         else:
             pp = poll_request.poll_parameters
@@ -76,9 +76,9 @@ class PollRequestProperties(object):
             prp.allow_asynch = pp.allow_asynch
             prp.query = pp.query
             if prp.query:
-                prp.query_handler = poll_service.get_query_handler(prp.query, prp.message_id)
+                prp.supported_query = poll_service.get_supported_query(prp.query, prp.message_id)
             else:
-                prp.query_handler = None
+                prp.supported_query = None
             prp.delivery_parameters = pp.delivery_parameters
 
         if prp.collection.type == CT_DATA_FEED:  # Only data feeds care about timestamp labels
@@ -98,5 +98,12 @@ class PollRequestProperties(object):
                 pr_ietl = poll_request.inclusive_end_timestamp_label
                 if pr_ietl < current_datetime:
                     prp.inclusive_end_timestamp_label = poll_request.inclusive_end_timestamp_label
+
+            if ((prp.inclusive_end_timestamp_label is not None and prp.exclusive_begin_timestamp_label is not None) and
+                prp.inclusive_end_timestamp_label < prp.exclusive_begin_timestamp_label):
+                raise StatusMessageException(prp.message_id,
+                                             ST_FAILURE,
+                                             message="Invalid Timestamp Labels: End TS Label is earlier "
+                                                     "than Begin TS Label")
 
         return prp
