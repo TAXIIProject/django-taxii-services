@@ -90,8 +90,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@precision': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
@@ -140,8 +140,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                         'children': {
                           '@precision': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                         },
@@ -163,8 +163,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                 'children': {
                   '@structuring_format': {
                     'has_text': True,
-                    'namespace': 'None',
-                    'prefix': 'None',
+                    'namespace': None,
+                    'prefix': None,
                     'children': {},
                   },
                 },
@@ -218,14 +218,14 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
           },
           '@id': {
             'has_text': True,
-            'namespace': 'None',
-            'prefix': 'None',
+            'namespace': None,
+            'prefix': None,
             'children': {},
           },
           '@timestamp': {
             'has_text': True,
-            'namespace': 'None',
-            'prefix': 'None',
+            'namespace': None,
+            'prefix': None,
             'children': {},
           },
           'Threat_Actors': {
@@ -240,8 +240,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                 'children': {
                   '@timestamp': {
                     'has_text': True,
-                    'namespace': 'None',
-                    'prefix': 'None',
+                    'namespace': None,
+                    'prefix': None,
                     'children': {},
                   },
                   'Associated_Actors': {
@@ -266,8 +266,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@structuring_format': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
@@ -279,8 +279,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@vocab_name': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
@@ -294,8 +294,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                             'children': {
                               '@idref': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                             },
@@ -327,8 +327,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                             'children': {
                               '@idref': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                               'Behavior': {
@@ -381,8 +381,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                         'children': {
                                           '@cybox_major_version': {
                                             'has_text': True,
-                                            'namespace': 'None',
-                                            'prefix': 'None',
+                                            'namespace': None,
+                                            'prefix': None,
                                             'children': {},
                                           },
                                           'Observable': {
@@ -402,8 +402,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                                     'children': {
                                                       '@type': {
                                                         'has_text': True,
-                                                        'namespace': 'None',
-                                                        'prefix': 'None',
+                                                        'namespace': None,
+                                                        'prefix': None,
                                                         'children': {},
                                                       },
                                                       'Value': {
@@ -420,14 +420,14 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                           },
                                           '@cybox_minor_version': {
                                             'has_text': True,
-                                            'namespace': 'None',
-                                            'prefix': 'None',
+                                            'namespace': None,
+                                            'prefix': None,
                                             'children': {},
                                           },
                                           '@cybox_update_version': {
                                             'has_text': True,
-                                            'namespace': 'None',
-                                            'prefix': 'None',
+                                            'namespace': None,
+                                            'prefix': None,
                                             'children': {},
                                           },
                                         },
@@ -450,8 +450,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                   },
                   '@id': {
                     'has_text': True,
-                    'namespace': 'None',
-                    'prefix': 'None',
+                    'namespace': None,
+                    'prefix': None,
                     'children': {},
                   },
                   '@type': {
@@ -858,14 +858,14 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                         'children': {
                           '@kill_chain_id': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                           '@phase_id': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                         },
@@ -874,8 +874,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                   },
                   '@timestamp': {
                     'has_text': True,
-                    'namespace': 'None',
-                    'prefix': 'None',
+                    'namespace': None,
+                    'prefix': None,
                     'children': {},
                   },
                   'Intended_Effect': {
@@ -890,8 +890,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                         'children': {
                           '@structuring_format': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                         },
@@ -928,8 +928,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                             'children': {
                               '@idref': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                             },
@@ -966,16 +966,16 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@structuring_format': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
                               },
                               '@capec_id': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                             },
@@ -1011,8 +1011,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@structuring_format': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
@@ -1105,8 +1105,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                   },
                   '@id': {
                     'has_text': True,
-                    'namespace': 'None',
-                    'prefix': 'None',
+                    'namespace': None,
+                    'prefix': None,
                     'children': {},
                   },
                   '@type': {
@@ -1132,8 +1132,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                             'children': {
                               '@cybox_major_version': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                               'Observable': {
@@ -1148,14 +1148,14 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                     'children': {
                                       '@idref': {
                                         'has_text': True,
-                                        'namespace': 'None',
-                                        'prefix': 'None',
+                                        'namespace': None,
+                                        'prefix': None,
                                         'children': {},
                                       },
                                       '@id': {
                                         'has_text': True,
-                                        'namespace': 'None',
-                                        'prefix': 'None',
+                                        'namespace': None,
+                                        'prefix': None,
                                         'children': {},
                                       },
                                       'Properties': {
@@ -1165,8 +1165,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                         'children': {
                                           '@category': {
                                             'has_text': True,
-                                            'namespace': 'None',
-                                            'prefix': 'None',
+                                            'namespace': None,
+                                            'prefix': None,
                                             'children': {},
                                           },
                                           'Address_Value': {
@@ -1176,8 +1176,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                             'children': {
                                               '@condition': {
                                                 'has_text': True,
-                                                'namespace': 'None',
-                                                'prefix': 'None',
+                                                'namespace': None,
+                                                'prefix': None,
                                                 'children': {},
                                               },
                                             },
@@ -1196,8 +1196,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                               },
                               '@cybox_minor_version': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                             },
@@ -1215,8 +1215,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                             'children': {
                               '@structuring_format': {
                                 'has_text': True,
-                                'namespace': 'None',
-                                'prefix': 'None',
+                                'namespace': None,
+                                'prefix': None,
                                 'children': {},
                               },
                             },
@@ -1246,8 +1246,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                                 'children': {
                                   '@structuring_format': {
                                     'has_text': True,
-                                    'namespace': 'None',
-                                    'prefix': 'None',
+                                    'namespace': None,
+                                    'prefix': None,
                                     'children': {},
                                   },
                                 },
@@ -1272,8 +1272,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                     'children': {
                       '@name': {
                         'has_text': True,
-                        'namespace': 'None',
-                        'prefix': 'None',
+                        'namespace': None,
+                        'prefix': None,
                         'children': {},
                       },
                       'Kill_Chain_Phase': {
@@ -1283,40 +1283,40 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
                         'children': {
                           '@ordinality': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                           '@name': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                           '@phase_id': {
                             'has_text': True,
-                            'namespace': 'None',
-                            'prefix': 'None',
+                            'namespace': None,
+                            'prefix': None,
                             'children': {},
                           },
                         },
                       },
                       '@id': {
                         'has_text': True,
-                        'namespace': 'None',
-                        'prefix': 'None',
+                        'namespace': None,
+                        'prefix': None,
                         'children': {},
                       },
                       '@number_of_phases': {
                         'has_text': True,
-                        'namespace': 'None',
-                        'prefix': 'None',
+                        'namespace': None,
+                        'prefix': None,
                         'children': {},
                       },
                       '@definer': {
                         'has_text': True,
-                        'namespace': 'None',
-                        'prefix': 'None',
+                        'namespace': None,
+                        'prefix': None,
                         'children': {},
                       },
                     },
@@ -1333,8 +1333,8 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
           },
           '@version': {
             'has_text': True,
-            'namespace': 'None',
-            'prefix': 'None',
+            'namespace': None,
+            'prefix': None,
             'children': {},
           },
         },

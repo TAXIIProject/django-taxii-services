@@ -33,7 +33,7 @@ def make_request(path='/', post_data=None, header_dict=None,
         header_dict['X-TAXII-Accept'] = VID_TAXII_XML_11
 
     if post_data:  # Make a POST
-        resp = c.post(path, data=post_data, content_type='application_xml', **header_dict)
+        resp = c.post(path, data=post_data, content_type='application/xml', **header_dict)
     else:  # Make a GET
         resp = c.get(path, **header_dict)
 
@@ -577,6 +577,8 @@ class PollRequestTests11(TestCase):
     def test_14(self):
         """
         Test a query. Should match just the APT1 report.
+        equals / case sensitive
+        no wildcards
         """
 
         tgt = 'STIX_Package/Threat_Actors/Threat_Actor/Identity/' \
@@ -603,7 +605,7 @@ class PollRequestTests11(TestCase):
         """
 
         tgt = 'STIX_Package/STIX_Header/*'
-        params = {P_VALUE:'Example watchlist that contains IP information.',
+        params = {P_VALUE: 'Example watchlist that contains IP information.',
                   P_MATCH_TYPE: 'case_insensitive_string'}
 
         pr = create_poll_w_query(R_EQUALS, params, tgt)
@@ -615,6 +617,174 @@ class PollRequestTests11(TestCase):
 
         if len(msg.content_blocks) != 1:
             raise ValueError('Got %s CBs' % len(msg.content_blocks))
+
+    def test_16(self):
+        """
+        Query - test equals / number
+        no wildcard
+        """
+
+        pass
+
+    def test_17(self):
+        """
+        Query - equals / case_insensitive_string
+        naked multi field WC
+        """
+        tgt = '**'
+        value = '10.0.0.0##comma##10.0.0.1##comma##10.0.0.2'
+        params = {P_VALUE: value,
+                  P_MATCH_TYPE: 'case_insensitive_string'}
+        pr = create_poll_w_query(R_EQUALS, params, tgt)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_POLL_RESPONSE)
+
+        if len(msg.content_blocks) != 1:
+            raise ValueError('Got %s CBs' % len(msg.content_blocks))
+
+        if value not in msg.content_blocks[0].content:
+            raise ValueError('string not found in result: ', value)
+
+    def test_18(self):
+        """
+        Query - Not equal case sensitive
+        no wildcard
+        """
+        tgt = 'STIX_Package/STIX_Header/Title'
+        value = 'example file watchlist'
+        params = {P_VALUE: value,
+                  P_MATCH_TYPE: 'case_sensitive_string'}
+        pr = create_poll_w_query(R_NOT_EQUALS, params, tgt)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_POLL_RESPONSE)
+
+        if len(msg.content_blocks) != 5:
+            raise ValueError("Incorrect number of content blocks!")
+
+    def test_19(self):
+        """
+        Query - Not equals case insensitive
+        no wildcard
+        """
+        tgt = 'STIX_Package/STIX_Header/Title'
+        value = 'example file watchlist'
+        params = {P_VALUE: value,
+                  P_MATCH_TYPE: 'case_insensitive_string'}
+        pr = create_poll_w_query(R_NOT_EQUALS, params, tgt)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_POLL_RESPONSE)
+
+        if len(msg.content_blocks) != 4:
+            raise ValueError("Incorrect number of content blocks!")
+
+    def test_20(self):
+        """
+        Query - not equals number
+        leading multi-field wildcard
+        """
+        tgt = '**/@cybox_major_version'
+        value = str(2)
+        params = {P_VALUE: value,
+                  P_MATCH_TYPE: 'number'}
+        pr = create_poll_w_query(R_NOT_EQUALS, params, tgt)
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_POLL_RESPONSE)
+
+        cb_len = len(msg.content_blocks)
+        if cb_len != 0:
+            raise ValueError("Incorrect number of content blocks!", cb_len)
+
+    def test_21(self):
+        """
+        Query - greater than
+        no wildcard
+        """
+        pass
+
+    def test_22(self):
+        """
+        Query - greater than or equals
+        no wildcard
+        """
+        pass
+
+    def test_23(self):
+        """
+        Query - less than
+        no wildcard
+        """
+        pass
+
+    def test_24(self):
+        """
+        Query - less than or equals
+        no wildcard
+        """
+        pass
+
+    def test_25(self):
+        """
+        Query - exists
+        no wildcard
+        """
+        pass
+
+    def test_26(self):
+        """
+        Query - does not exist
+        no wildcard
+        """
+        pass
+
+    def test_27(self):
+        """
+        Query - begins with case sensitive
+        no wildcard
+        """
+        pass
+
+    def test_28(self):
+        """
+        Query - begins with case insensitive
+        no wildcard
+        """
+        pass
+
+    def test_29(self):
+        """
+        Query - contains case sensitive
+        no wildcard
+        """
+        pass
+
+    def test_30(self):
+        """
+        Query - contains case insensitive
+        no wildcard
+        """
+        pass
+
+    def test_31(self):
+        """
+        Query - ends with case sensitive
+        no wildcard
+        """
+        pass
+
+    def test_32(self):
+        """
+        Query - ends with case insensitive
+        no wildcard
+        """
+        pass
 
 
 class PollRequestTests10(TestCase):

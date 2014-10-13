@@ -52,6 +52,7 @@ def split_tag(tag):
 # }
 # Then ... the trick is to turn this into code!
 
+# TODO: This script writes 'None' instead of None
 
 def add_element_to_dict(elem, d):
     name, namespace = split_tag(elem.tag)

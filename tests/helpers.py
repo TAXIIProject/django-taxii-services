@@ -135,8 +135,8 @@ def add_basics():
 
 
 def add_collection_service():
-    cih = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.CollectionInformationRequestHandler')
-    smh = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.SubscriptionRequestHandler')
+    cih = MessageHandler.objects.get(handler='taxii_services.CollectionInformationRequestHandler')
+    smh = MessageHandler.objects.get(handler='taxii_services.SubscriptionRequestHandler')
 
     cis = CollectionManagementService(name='Test Collection Management Service 1',
                                       path=COLLECTION_PATH,
@@ -149,7 +149,7 @@ def add_collection_service():
 
 
 def add_discovery_service():
-    disc_handler = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.DiscoveryRequestHandler')
+    disc_handler = MessageHandler.objects.get(handler='taxii_services.DiscoveryRequestHandler')
     ds = DiscoveryService(name='Test Discovery Service 1',
                           path=DISCOVERY_PATH,
                           description='Test description.',
@@ -160,7 +160,7 @@ def add_discovery_service():
 
 
 def add_inbox_service():
-    ih = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.InboxMessageHandler')
     inbox_1 = InboxService(name='Test Inbox 1',
                            path='/test_inbox_1/',
                            description='Description!',
@@ -171,7 +171,7 @@ def add_inbox_service():
     inbox_1.destination_collections = DataCollection.objects.filter(name='default')
     inbox_1.save()
 
-    ih = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.InboxMessageHandler')
     inbox_2 = InboxService(name='Test Inbox 2',
                            path='/test_inbox_2/',
                            description='Description!',
@@ -182,7 +182,7 @@ def add_inbox_service():
     inbox_2.destination_collections = DataCollection.objects.filter(name='default')
     inbox_2.save()
 
-    ih = MessageHandler.objects.get(handler='taxii_services.taxii_handlers.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.InboxMessageHandler')
     inbox_3 = InboxService(name='Test Inbox 3',
                            path='/test_inbox_3/',
                            description='Description!',

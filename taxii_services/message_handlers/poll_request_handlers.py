@@ -201,12 +201,16 @@ class PollRequest10Handler(BaseMessageHandler):
     supported_request_messages = [tm10.PollRequest]
     version = "1"
 
-    @staticmethod
-    def handle_message(poll_service, poll_message, django_request):
+    @classmethod
+    def handle_message(cls, poll_service, poll_message, django_request):
         """
-        TODO: Implement this.
+        TODO: This isn't tested
         """
-        pass
+        prp = PollRequestProperties.from_poll_request_10(poll_service, poll_message)
+        db_kwargs = prp.get_db_kwargs()
+        content_blocks = cls.get_content(prp, db_kwargs)
+        response = cls.create_poll_response(poll_service, prp, content_blocks)
+        return response
 
 
 class PollRequestHandler(BaseMessageHandler):

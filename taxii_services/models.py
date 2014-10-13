@@ -121,26 +121,26 @@ ALLOWED_SCOPE = ('ALLOWED', 'Allowed')
 SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
 
 
-class SupportInfo(object):
-    """
-    An object that contains information related to
-    whether something is supported or not.
+#class SupportInfo(object):
+#    """
+#    An object that contains information related to
+#    whether something is supported or not.
+#
+#    This class has two properties:
+#    is_supported (bool) - Indicates whether the thing is supported
+#    message (str) - A message about why the thing is or is not supported. Usually used to indicate why \
+#     something isn't supported.
+#    """
 
-    This class has two properties:
-    is_supported (bool) - Indicates whether the thing is supported
-    message (str) - A message about why the thing is or is not supported. Usually used to indicate why \
-     something isn't supported.
-    """
-
-    def __init__(self, is_supported, message=None):
-        """
-        Arguments:
-            is_supported (bool) - Indicates whether the thing is supported
-            message (str) - A message about why the thing is or is not supported **optional**. \
-            Usually used to indicate why something isn't supported.
-        """
-        self.is_supported = is_supported
-        self.message = message
+#    def __init__(self, is_supported, message=None):
+#        """
+#        Arguments:
+#            is_supported (bool) - Indicates whether the thing is supported
+#            message (str) - A message about why the thing is or is not supported **optional**. \
+#            Usually used to indicate why something isn't supported.
+#        """
+#        self.is_supported = is_supported
+#        self.message = message
 
 
 class _BindingBase(models.Model):
@@ -1365,20 +1365,24 @@ class PollService(_TaxiiService):
             if len(potential_matches) == 0:
                 raise StatusMessageException(in_response_to,
                                              ST_UNSUPPORTED_CAPABILITY_MODULE,
-                                             status_detail={})
+                                             status_detail={SD_CAPABILITY_MODULE: ['TBD']})
 
         # Targets have to be checked in software (for now ... ?)
+        list_potential_matches = list(potential_matches)
+        # print 'looking at targets'
         for target in targets:
-            for potential_match in potential_matches:
-                if not potential_match.query_handler.get_handler_class().is_target_supported(target):
-                    potential_matches.remove(potential_match)
-                    if len(potential_matches) == 0:
+            for potential_match in list_potential_matches:
+                tgt_support = potential_match.query_handler.get_handler_class().is_target_supported(target)
+                if not tgt_support.is_supported:
+                    list_potential_matches.remove(potential_match)
+                    if len(list_potential_matches) == 0:
                         raise StatusMessageException(in_response_to,
                                                      ST_UNSUPPORTED_TARGETING_EXPRESSION,
-                                                     status_detail={})
+                                                     message=tgt_support.message)
+        # print 'done looking at targets'
 
         # We've found matches. Arbitrarily pick the first one.
-        return potential_matches[0]
+        return list_potential_matches[0]
 
     def to_service_instances_11(self):
         service_instances = super(PollService, self).to_service_instances_11()

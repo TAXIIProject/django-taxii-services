@@ -5,33 +5,109 @@ from ..exceptions import StatusMessageException
 
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
+from ..util import SupportInfo
+
+import traceback
 
 from lxml import etree
 
+# Define stub predicates for each relationship. Stub predicates have a placeholder for the operand and value
 EQ_CS = '[%s = \'%s\']'
 EQ_CI ='[translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghijklmnopqrstuvwxyz\') = \'%s\']'
 EQ_N = '[%s = \'%s\']'
-
 NEQ_CS = '[%s != \'%s\']'
 NEQ_CI = '[translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghijklmnopqrstuvwxyz\') != \'%s\']'
 NEQ_N = '[%s != \'%s\']'
-
 GT = '[%s > \'%s\']'
 GTE = '[%s >= \'%s\']'
 LT = '[%s < \'%s\']'
 LTE = '[%s <= \'%s\']'
-
-EX = None
+EX = ''
 DNE = '????????????????????????????'
-
 BEGIN_CS = '[contains(%s, \'%s\')]'
 BEGIN_CI = '[starts-with(translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghijklmnopqrstuvwxyz\'), \'%s\')]'
-
 CONTAINS_CS = '[contains(%s, \'%s\')]'
 CONTAINS_CI = '[contains(translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghijklmnopqrstuvwxyz\'), \'%s\')]'
-
 ENDS_CS = '[substring(%s, string-length(%s) - string-length(\'%s\') + 1) = \'%s\']'
 ENDS_CI = '[substring(translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghijklmnopqrstuvwxyz\'), string-length(%s) - string-length(\'%s\') + 1) = \'%s\']'
+
+
+class XPathBuilder(object):
+    def __init__(self, xpath_parts, nsmap):
+        self.xpath_parts = xpath_parts
+        self.nsmap = nsmap
+
+    def build(self, relationship, params):
+        expr = '/'.join(self.xpath_parts)
+
+        last_part = self.xpath_parts[-1]
+        if last_part.startswith('@'):
+            operand = '.'
+        else:
+            operand = 'text()'
+
+        v = params.get(P_VALUE, None)
+
+        # Relationship equals
+        if relationship == R_EQUALS and params[P_MATCH_TYPE] == 'case_sensitive_string':
+            expr += EQ_CS % (operand, v)
+        elif relationship == R_EQUALS and params[P_MATCH_TYPE] == 'case_insensitive_string':
+            expr += EQ_CI % (operand, v.lower())
+        elif relationship == R_EQUALS and params[P_MATCH_TYPE] == 'number':
+            expr += EQ_N % (operand, v)
+
+        # Take a breather before jumping into the next relationship, not equals
+
+        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'case_sensitive_string':
+            expr += NEQ_CS % (operand, v)
+        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'case_insensitive_string':
+            expr += NEQ_CI % (operand, v.lower())
+        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'number':
+            expr += NEQ_N % (operand, v)
+
+        # Next set of relationships, gt, lt, gte, lte
+
+        elif relationship == R_GREATER_THAN:
+            expr += GT % (operand, v)
+        elif relationship == R_GREATER_THAN_OR_EQUAL:
+            expr += GTE % (operand, v)
+        elif relationship == R_LESS_THAN:
+            expr += LT % (operand, v)
+        elif relationship == R_LESS_THAN_OR_EQUAL:
+            expr += LTE % (operand, v)
+
+        # Next set of relationships, Exists/DoesNotExist
+
+        elif relationship == R_DOES_NOT_EXIST:
+            raise ValueError('Need to code this!')
+            # expr += 'not(' + xpath_string + ')'
+        elif relationship == R_EXISTS:
+            raise ValueError('Need to code this!')
+            # expr + # nothing necessary
+
+        # Next, begins with
+        elif relationship == R_BEGINS_WITH and params[P_CASE_SENSITIVE] == 'false':
+            expr += BEGIN_CS % (operand, v.lower())
+        elif relationship == R_BEGINS_WITH and params[P_CASE_SENSITIVE] == 'true':
+            expr += BEGIN_CI % (operand, v)
+
+        # Next, contains
+
+        elif relationship == R_CONTAINS and params[P_CASE_SENSITIVE] == 'false':
+            expr += CONTAINS_CS % (operand, v.lower())
+        elif relationship == R_CONTAINS and params[P_CASE_SENSITIVE] == 'true':
+            expr += CONTAINS_CS % (operand, v)
+
+        # Lastly, ends with
+
+        elif relationship == R_ENDS_WITH and params[P_CASE_SENSITIVE] == 'false':
+            expr += ENDS_CI % (operand, operand, v, v.lower())
+        elif relationship == R_ENDS_WITH and params[P_CASE_SENSITIVE] == 'true':
+            expr += ENDS_CS % (operand, operand, v, v)
+        else:
+            raise ValueError("Unknown values: %s, %s" % (relationship, params))
+
+        return expr
 
 
 class BaseQueryHandler(object):
@@ -184,11 +260,11 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         """
 
         try:
-            cls.get_xpath_parts(target)
+            cls.target_to_xpath_builders(None, target)
         except ValueError as e:
-            return False, e
+            return SupportInfo(False, traceback.format_exc(e))
 
-        return True, None
+        return SupportInfo(True, None)
 
     @classmethod
     def evaluate_criteria(cls, prp, content_etree, criteria):
@@ -207,10 +283,10 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         """
 
         for child_criteria in criteria.criteria:
-            value = cls.evaluate_criteria(content_etree, child_criteria)
-            if value and criteria.operator == tdq.OP_OR:
+            value = cls.evaluate_criteria(prp, content_etree, child_criteria)
+            if value is True and criteria.operator == tdq.OP_OR:
                 return True
-            elif not value and criteria.operator == tdq.OP_AND:
+            elif value is False and criteria.operator == tdq.OP_AND:
                 return False
             else:  # Don't know anything for sure yet
                 pass
@@ -218,9 +294,9 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         for criterion in criteria.criterion:
             value = cls.evaluate_criterion(prp, content_etree, criterion)
             # TODO: Is there a way to keep this DRY?
-            if value and criteria.operator == tdq.OP_OR:
+            if value is True and criteria.operator == tdq.OP_OR:
                 return True
-            elif not value and criteria.operator == tdq.OP_AND:
+            elif value is False and criteria.operator == tdq.OP_AND:
                 return False
             else:  # Don't know anything for sure yet
                 pass
@@ -242,20 +318,8 @@ class BaseXmlQueryHandler(BaseQueryHandler):
             matches the criterion
         """
 
-        # Based on criterion.target, get the "stub" of an XPath, e.g.,
-        # STIX_Package/STIX_Header/Title turns into
-        # stix:STIX_Package/stix:STIX_Header/stix:Title
-        # Note that the stubs do not contain the matching part of an XPaths
-        # (e.g., text() = 'value_to_match')
-        xpath_stubs, operand, nsmap = cls.target_to_xpath_stubs(prp, criterion.target)
-        to_append = cls.get_xpath_append(prp, operand, criterion.test)
-
-        full_xpaths = []
-        for xpath_stub in xpath_stubs:
-            full_xpaths.append(xpath_stub + to_append)
-
-        xpath = " or ".join(full_xpaths)
-
+        xpath, nsmap = cls.get_xpath(prp, criterion)
+        # print xpath
         matches = content_etree.xpath(xpath, namespaces=nsmap)
         # XPath results can be a boolean (True, False) or
         # a NodeSet
@@ -269,197 +333,227 @@ class BaseXmlQueryHandler(BaseQueryHandler):
 
         return result
 
-    @classmethod
-    def get_xpath_parts(cls, target):
-        """
-        Given a Targeting Expression, return a list of
-        XPath parts (which can be used to construct the
-        beginning part of an XPath) and nsmap for use in an XPath.
-
-        The last item in the list might be a wildcard, which
-        will need to be handled by the calling function
-
-        Arguments:
-            target (str) - A string containing the Target of a Criterion
-
-        Returns:
-            A tuple containing a list of XPath Parts and an nsmap dict
-        """
-
-        nsmap = {}
-        xpath_parts = ['']
-        target_parts = target.split('/')
-        context = cls.mapping_dict['root_context']  # mapping_dict is defined by child classes
-
-        for part in target_parts:
-            if part.startswith('@'):  # Its an attribute
-                #TODO: Write a unit test that uses an attribute value to see what this is
-                operand = part
-            elif part == '**':  # Multi-field wild card
-                xpath_parts.append('/*')  # This will get made into '//*' at the .join step
-            elif part == '*':  # Multi-field wild card
-                xpath_parts.append('*')  # This will get made into '/*' at the .join step
-            else:  # Regular token
-                context = context['children'].get(part, None)
-                if context is None:
-                    raise ValueError('Unknown token: %s' % part)
-                namespace = context.get('namespace', None)
-                if namespace:  # Add namespaced info
-                    xpath_parts.append(context.get('prefix', 'NoPrefixFound') + ':' + part)
-                    nsmap[context.get('prefix', 'NoPrefixFound')] = namespace
-                else:  # Add non-namespaced info
-                    xpath_parts.append(part)
-
-        return xpath_parts, nsmap
 
     @classmethod
-    def get_xpath_append(cls, prp, operand, test):
+    def get_xpath(cls, prp, criterion):
         """
-        Get the clause to append to the end of an XPath,
-        based on the operand and test
+        Given a tdq.Criterion, return an XPath that is equivalen
 
-        Arguments:
-            operand (str) - The operand of the XPath expression (e.g., the left hand side (x) of x = y)
-            test - A TAXII Default Query Test object
-
-        Returns:
-            A string containing the append part of the xpath
-
+        :param prp: PollRequestProperties
+        :param criterion: tdq.Criterion
+        :return: The full XPath to evaluate that maps to the tdq.Criterion
         """
-        v = test.parameters.get('value', None)
-        relationship = test.relationship
-        params = test.parameters
+        xpath_builders, nsmap = cls.target_to_xpath_builders(prp, criterion.target)
+        xpaths = [xp.build(criterion.test.relationship, criterion.test.parameters) for xp in xpath_builders]
+        xpath = " or ".join(xpaths)
+        return xpath, nsmap
 
-        # Relationship equals
-        if relationship == R_EQUALS and params[P_MATCH_TYPE] == 'case_sensitive_string':
-            append = EQ_CS % (operand, v)
-        elif relationship == R_EQUALS and params[P_MATCH_TYPE] == 'case_insensitive_string':
-            append = EQ_CI % (operand, v.lower())
-        elif relationship == R_EQUALS and params[P_MATCH_TYPE] == 'number':
-            append = EQ_N % (operand, v)
-
-        # Take a breather before jumping into the next relationship, not equals
-
-        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'case_sensitive_string':
-            append = NEQ_CS % (operand, v)
-        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'case_insensitive_string':
-            append = NEQ_CI % (operand, v.lower())
-        elif relationship == R_NOT_EQUALS and params[P_MATCH_TYPE] == 'number':
-            append = NEQ_N % (operand, v)
-
-        # Next set of relationships, gt, lt, gte, lte
-
-        elif relationship == R_GREATER_THAN:
-            append = GT % (operand, v)
-        elif relationship == R_GREATER_THAN_OR_EQUAL:
-            append = GTE % (operand, v)
-        elif relationship == R_LESS_THAN:
-            append = LT % (operand, v)
-        elif relationship == R_LESS_THAN_OR_EQUAL:
-            append = LTE % (operand, v)
-
-        # Next set of relationships, Exists/DoesNotExist
-
-        elif relationship == R_DOES_NOT_EXIST:
-            xpath_string = 'not(' + xpath_string + ')'
-        elif relationship == R_EXISTS:
-            pass  # nothing necessary
-
-        # Next, begins with
-        elif relationship == R_BEGINS_WITH and params[P_CASE_SENSITIVE] == 'false':
-            append = BEGIN_CS % (operand, v.lower())
-        elif relationship == R_BEGINS_WITH and params[P_CASE_SENSITIVE] == 'true':
-            append = BEGIN_CI % (operand, v)
-
-        # Next, contains
-
-        elif relationship == R_CONTAINS and params[P_CASE_SENSITIVE] == 'false':
-            append = CONTAINS_CS % (operand, v.lower())
-        elif relationship == R_CONTAINS and params[P_CASE_SENSITIVE] == 'true':
-            append = CONTAINS_CS % (operand, v)
-
-        # Lastly, ends with
-
-        elif relationship == R_ENDS_WITH and params[P_CASE_SENSITIVE] == 'false':
-            append = ENDS_CI % (operand, operand, v, v.lower())
-        elif relationship == R_ENDS_WITH and params[P_CASE_SENSITIVE] == 'true':
-            append = ENDS_CS % (operand, operand, v, v)
-        else:
-            raise ValueError("Unknown values: %s, %s" % (relationship, params))
-
-        return append
 
     @classmethod
-    def target_to_xpath_stubs(cls, prp, target):
-        nsmap = {}
-        target_parts = target.split('/')
+    def target_to_xpath_builders(cls, prp, target):
+        """
+        Turns a Targeting Expression into an XPath stub.
+
+        :param prp: PollRequestProperties object
+        :param target: A string Targeting Expression
+        :return: A list of 1-2 XPathBuilder objects, nsmap (dict)
+        """
+
+        # Determine the class of Targeting Expression and sub out to the relevant subcall
+
+        target_tokens = target.split('/')
+
+        # Test for Naked/Trailing (N/T) Wildcard
+        if target.endswith('*'):
+            xpath_builders, nsmap = cls.get_nt_wildcard_xpath_builders(prp, target_tokens)
+        # Test for Leading/Middle (L/M) Wildcard
+        elif '*' in target:
+            xpath_builders, nsmap = cls.get_lm_wildcard_xpath_builders(prp, target_tokens)
+        else:  # Assume no wildcards
+            xpath_builders, nsmap = cls.get_no_wildcard_xpath_builders(prp, target_tokens)
+
+        return xpath_builders, nsmap
+
+    @classmethod
+    def get_nt_wildcard_xpath_builders(cls, prp, target_tokens):
         xpath_parts = ['']
         context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
+        nsmap = {}
 
-        for part in target_parts:
-            if part.startswith('@'):  # It's an attribute
-                operand = part
-            elif part == '**':  # It's a multi-field WC
-                xpath_parts.append('/*')  # This will become '//*' later on
-            elif part == '*':  # Single field WC
-                xpath_parts.append(part)  # This will become '/*' later on
-                # TODO: This doesn't descend into the context tree like it should (Maybe a look-ahead is needed?)
-            else:  # Assume it's a "normal" part
-                context = context['children'].get(part, None)
+        wc_type = 'unknown'
+
+        for token in target_tokens:
+            if token == '*':
+                wc_type = 'single'
+                break
+            elif token == '**':
+                wc_type = 'multi'
+                break
+
+            context = context['children'].get(token, None)
+            if context is None:
+                raise ValueError('Unknown token: %s' % token)
+            namespace = context.get('namespace', None)
+            if namespace is not None:
+                prefix = context['prefix']
+                xpath_parts.append(prefix + ':' + token)
+                nsmap[prefix] = namespace
+            else:
+                xpath_parts.append(token)
+
+        if wc_type == 'multi':  # Insert an empty part to make the double slash (//) appear in the build expression
+            xpath_parts.append('')
+
+        # Create the XPath parts for the element expression
+        elt_xpath_parts = list(xpath_parts)  # Clone xpath_parts
+        elt_xpath_parts.append('*')
+
+        # Create the XPath parts for the attribute expression
+        attr_xpath_parts = list(xpath_parts)  # Clone xpath_parts
+        attr_xpath_parts.append('@*')
+
+        elt_builder = XPathBuilder(elt_xpath_parts, nsmap)
+        attr_builder = XPathBuilder(attr_xpath_parts, nsmap)
+
+        return [elt_builder, attr_builder], nsmap
+
+    @classmethod
+    def single_field_lookahead(cls, future_token, context):
+        """
+        Looks in the context's grandchildren for future_token.
+
+        Looking for context/*/future_token
+        * is 'children'
+        future_token is a grandchild
+
+        :param future_token: The token to look for
+        :param context: The context to look in
+        :return: The context whose children contains future_token
+        """
+
+        ctx_children = context.get('children', None)
+        if ctx_children is None:
+            raise ValueError('Context has no children!')
+
+        for k, v in ctx_children.iteritems():
+            if future_token in v.get('children', {}):
+                return v  # If future_token is found, return the context that contains future_token
+
+        raise ValueError('Lookahead failed for %s' % future_token)
+
+    @classmethod
+    def multi_field_lookahead(cls, future_token, context, max_depth=1000, depth=0):
+        """
+        The look_ahead does a depth first search on the context
+        looking for future_token, and stops looking when depth = max_depth.
+
+        There is a possible error in logic where future_token exists in multiple search trees.
+
+        This is used for the multi-field wildcard
+
+        :param future_token: The token to look for
+        :param context: The current context
+        :param max_depth: The maximum depth to look, defaults to 1000
+        :return: The future token's context
+        """
+
+        # depth = current context
+        # depth + 1 = current context's children
+        # if depth +1 is too far, can't look at the children and have to return None
+        if depth + 1 > max_depth:
+            # print 'max_depth of %s exceeded. Returning None' % max_depth
+            return None
+
+        ctx_children = context.get('children', {})
+        new_ctx = ctx_children.get(future_token, None)
+
+        # If future_token is found, return it's parent (so that context['children']['future_token'] works)
+        if new_ctx is not None:
+            # print 'Found future_token, returning', context
+            return context
+
+        # No children, can't look ahead any further
+        if len(ctx_children) == 0:
+            # print 'len(ctx_children) == 0, returning None'
+            return None
+
+        # As long as there is depth, recursively search each child
+        for k, v in ctx_children.iteritems():
+            # print 'recursing for ', k
+            x = cls.multi_field_lookahead(future_token, v, max_depth=max_depth, depth=depth+1)
+            if x is not None:
+                # print 'recurse for %s was not None, returning' % k
+                return x
+            # print 'recurse for %s was None, continuing search' % k
+
+        # print 'end of function - returning None'
+        return None  # Nothing has been found
+
+    @classmethod
+    def get_lm_wildcard_xpath_builders(cls, prp, target_tokens):
+        xpath_parts = ['']
+        context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
+        nsmap = {}
+        max_ = len(target_tokens)
+        i = 0
+        while i < max_:
+            token = target_tokens[i]
+
+            # There are three ways to advance the context
+            if token == '*':
+                future_token = target_tokens[i + 1]
+                context = cls.single_field_lookahead(future_token, context)
+                xpath_parts.append(token)
+
+            elif token == '**':
+
+                future_token = target_tokens[i + 1]
+                context = cls.multi_field_lookahead(future_token, context)
+                # print context
                 if context is None:
-                    raise ValueError('Unknown token: %s' % part)
+                    raise ValueError("Lookahead failed for %s" % future_token)
+
+                if len(xpath_parts) == 1:  # This is a leading wildcard, replace the 0th element
+                    xpath_parts[0] = '/'
+                else:  # This is a middle wildcard
+                    xpath_parts.append('')  # Will cause two slashes to get joined
+            else:
+                context = context['children'].get(token, None)
+                if context is None:
+                    raise ValueError('Unknown token: %s' % token)
                 namespace = context.get('namespace', None)
-                if namespace:
+                if namespace is not None:
                     prefix = context['prefix']
-                    xpath_parts.append(prefix + ':' + part)
+                    xpath_parts.append(prefix + ':' + token)
                     nsmap[prefix] = namespace
                 else:
-                    xpath_parts.append(part)
+                    xpath_parts.append(token)
+            i += 1
 
-        # Wild cards need to account for both element values and attribute values
-        # A single field WC (*) must add a '/*' and a '/@*' if it's at the end
-        # A multi field WC (**) must add a '//*' and a '//@*' if it's at the end
+        # print xpath_parts
+        xpath_builders = [XPathBuilder(xpath_parts, nsmap)]
+        return xpath_builders, nsmap
 
-        if xpath_parts[-1] == '/*':  # Multi-field WC
-            operand = '.'
+    @classmethod
+    def get_no_wildcard_xpath_builders(cls, prp, target_tokens):
+        xpath_parts = ['']
+        context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
+        nsmap = {}
 
-            xpath_parts[-1] = '/*'
-            elt_stub = '/'.join(xpath_parts)
+        for token in target_tokens:
+            context = context['children'].get(token, None)
+            if context is None:
+                raise ValueError('Unknown token: %s' % token)
+            namespace = context.get('namespace', None)
+            if namespace is not None:
+                prefix = context['prefix']
+                xpath_parts.append(prefix + ':' + token)
+                nsmap[prefix] = namespace
+            else:
+                xpath_parts.append(token)
 
-            xpath_parts[-1] = '/@*'
-            attr_stub = '/'.join(xpath_parts)
-
-            xpath_stubs = [elt_stub, attr_stub]
-
-        elif xpath_parts[-1] == '*':  # Single field WC
-            operand = '.'
-
-            xpath_parts[-1] = '*'
-            elt_stub = '/'.join(xpath_parts)
-
-            xpath_parts[-1] = '@*'
-            attr_stub = '/'.join(xpath_parts)
-
-            xpath_stubs = [elt_stub, attr_stub]
-
-        else:
-            operand = 'text()'
-            stub = '/'.join(xpath_parts)
-            xpath_stubs = [stub]
-
-        # print xpath_stubs
-
-        #if '*' in xpath_parts[-1]:  # The last value is a wild card of some sort
-        #    operand = '.'
-        #
-        #    # TODO: Use "if xpath_parts[-1] in ('/*', '*'):" as a reference
-        #    raise ValueError('Not really sure how this works')
-        #else:  # No special case at the end
-        #    operand = 'text()'
-        #    stub = '/'.join(xpath_parts)
-        #    xpath_stubs = [stub]
-
-        return xpath_stubs, operand, nsmap
+        xpath_builders = [XPathBuilder(xpath_parts, nsmap)]
+        return xpath_builders, nsmap
 
     @classmethod
     def filter_content(cls, prp, content_blocks):
