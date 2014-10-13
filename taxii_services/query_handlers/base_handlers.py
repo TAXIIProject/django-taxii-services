@@ -33,20 +33,55 @@ ENDS_CI = '[substring(translate(%s, \'ABCDEFGHIJKLMNOPQRSTUVWXYZ\', \'abcdefghij
 
 
 class XPathBuilder(object):
+    """
+    The XPathBuilder object is a helper object that stores an intermediate form of
+    XPath (a list of xpath parts and a namespace map) and can build that intermediate form
+    into a full xpath when given a relationship (e.g., equals) and TAXII Default Query parameters.
+
+    The object is instantiated with the __init__ method, and full XPaths are created by using the build() method.
+    """
     def __init__(self, xpath_parts, nsmap):
+        """
+        Creates an XPathBuilder object.
+
+        :param xpath_parts: A list of xpath parts. E.g., ['stix:STIX_Package','stix:STIX_Header','stix:Title']
+        :param nsmap: A dict containing an nsmap that can be used in
+        """
+
         self.xpath_parts = xpath_parts
         self.nsmap = nsmap
 
     def build(self, relationship, params):
+        """
+        Uses self.xpath_parts to build up an XPath Expression - e.g., turning ['stix:STIX_Package','stix:STIX_Header',
+        'stix:Title'] into /stix:STIX_Package/stix:STIX_Header/stix:Title. Then uses the specified relationship
+        and parameters to append an appropriate predicate (e.g., [text() = 'value']. All combined, this function
+        returns something like "/stix:STIX_Package/stix:STIX_Header/stix:Title[text() = 'value']"
+
+
+        :param relationship: A string containing a relationship (e.g., 'equals')
+        :param params: A dict containing TAXII Default Query parameters
+
+        :return: A string containing an XPath build based on self.xpath_arts, relationship, and parameters.
+        """
+
+        # Create the XPath Expression
         expr = '/'.join(self.xpath_parts)
 
+        # If the last part of the XPath Expression is an attribute, the operand (the left hand side of the predicate)
+        # is '.'. If the last part of the XPath Expression is an element, the operand is 'text()'
         last_part = self.xpath_parts[-1]
         if last_part.startswith('@'):
             operand = '.'
         else:
             operand = 'text()'
 
+        # Get the value of the Test, if it exists
         v = params.get(P_VALUE, None)
+
+        # Go through each relationship/parameter combination and append the appropriate predicate to
+        # The XPath Expression. The predicate is formed (in most cases) by injecting the operand and value
+        # into a predefined predicate stub.
 
         # Relationship equals
         if relationship == R_EQUALS and params[P_MATCH_TYPE] == 'case_sensitive_string':
@@ -165,13 +200,6 @@ class BaseQueryHandler(object):
     @classmethod
     def get_supported_tevs(cls):
         return cls.supported_tevs
-
-    @classmethod
-    def is_cm_supported(cls, cm):
-        supported = cm in cls.supported_cms
-        message = None
-        if not supported:
-            message = "Supported CMs: %s" % cls.supported_cms
 
     @classmethod
     def update_db_kwargs(cls, poll_request_properties, db_kwargs):
@@ -376,6 +404,16 @@ class BaseXmlQueryHandler(BaseQueryHandler):
 
     @classmethod
     def get_nt_wildcard_xpath_builders(cls, prp, target_tokens):
+        """
+        For the Naked/Trailing Wildcard class of Targeting Expressions, which are all Targeting Expressions
+        that have a wildcard that is "Naked" (e.g., all by itself) or Trailing (e.g., at the end of the Targeting
+        Expression), create an XPathBuilder object.
+
+        :param prp: PollRequestProperties
+        :param target_tokens: A tokenized list of Targeting Expressions
+
+        :return: A list of XPathBuilder objects
+        """
         xpath_parts = ['']
         context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
         nsmap = {}
