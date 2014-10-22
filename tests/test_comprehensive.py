@@ -363,6 +363,25 @@ class InboxTests(TestCase):
                      MSG_STATUS_MESSAGE,
                      st=ST_SUCCESS)
 
+    def test_14(self):
+        """
+        Replicate the InboxClientScript
+        """
+        from libtaxii.scripts.inbox_client import InboxClient11Script
+        stix_xml = InboxClient11Script.stix_watchlist
+
+        cb = tm11.ContentBlock(tm11.ContentBinding(CB_STIX_XML_111), stix_xml)
+
+        inbox = tm11.InboxMessage(message_id=generate_message_id(),
+                                  destination_collection_names=['default'],
+                                  content_blocks=[cb])
+
+        make_request('/test_inbox_1/',
+                     inbox.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_11, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_SUCCESS)
+
 
 class PollRequestTests11(TestCase):
 
