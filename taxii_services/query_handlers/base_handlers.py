@@ -5,7 +5,7 @@ from ..exceptions import StatusMessageException
 
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
-from ..util import SupportInfo
+from ..models import SupportInfo
 
 import traceback
 
