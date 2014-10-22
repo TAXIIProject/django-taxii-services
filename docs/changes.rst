@@ -1,6 +1,37 @@
 Release Notes
 =============
 
+0.2
+---
+The structure of Message Handlers and Query Handlers were significantly reorganized:
+
+* Message Handlers used to be in base_taxii_handlers.py and taxii_handlers.py. They are now in the message_handlers module, which consists of the following files:
+ * base_handlers.py - Contains the BaseMessageHandler class. All Message Handler classes inherit from this class
+ * collection_information_request_handlers.py - Contains all Collection/Feed Information Request Handlers (TAXII 1.0 and 1.1)
+ * discovery_request_handlers.py - Contains all Discovery Request Handlers (TAXII 1.0 and 1.1)
+ * inbox_message_handlers.py - Contains all Inbox Message Handlers (TAXII 1.0 and 1.1)
+ * poll_fulfillment_request_handlers.py - Contains the Poll Fullfillment Request Handler (TAXII 1.1)
+ * poll_request_handlers.py - Contains all Poll Request Handlers (TAXII 1.0 and 1.1)
+ * subscription_request_handlers.py - Contains all Subscription Handlers (TAXII 1.0 and 1.1)
+
+Note that each Message Handler, or BaseMessageHandler, can be extended and customized for custom TAXII Message Handling
+
+* Query Handlers used to be in base_taxii_handlers.py and has been moved to the query_handlers module, which consists of the following files:
+ * base_handlers.py - Contains the BaseQueryHandler and BaseXmlQueryHandler class. The BaseXmlQueryHandler class is a general TAXII Query to XPath mapping class
+ * stix_xml_111_handler.py - Contains an incomplete STIX 1.1.1 Query Handler that is a subclass of BaseXmlQueryHandler.
+
+Closed issues:
+
+* #16 - https://github.com/TAXIIProject/django-taxii-services/issues/16
+* #17 - https://github.com/TAXIIProject/django-taxii-services/issues/17
+* #24 - https://github.com/TAXIIProject/django-taxii-services/issues/24
+
+Other changes
+
+* Quite a few PEP8 changes
+* Added testing and test content (see: test/)
+
+
 0.1.2
 -----
 

@@ -28,9 +28,6 @@ of this is the ‘save_content_block’ method of the InboxMessage11Handler, whi
 implementers to override just the InboxMessage11Handler’s default logic for saving content 
 without needing to re-implement the rest of the handler’s processing logic.
 
-The MessageHandlers are documented in taxii_services.taxii_handlers section of the API.
-
-
 QueryHandlers
 -------------
 (TODO: Write this)
