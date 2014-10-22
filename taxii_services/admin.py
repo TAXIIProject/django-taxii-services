@@ -90,7 +90,7 @@ class SupportedQueryAdmin(admin.ModelAdmin):
 
 class QueryHandlerAdmin(admin.ModelAdmin):
     list_display = ['name', 'description', 'module_name', 'class_name',
-                    'targeting_expression_id', 'capability_modules', 'version']
+                    'version']
 
 
 class MessageHandlerAdmin(admin.ModelAdmin):
