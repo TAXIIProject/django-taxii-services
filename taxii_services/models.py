@@ -121,26 +121,28 @@ ALLOWED_SCOPE = ('ALLOWED', 'Allowed')
 SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
 
 
-#class SupportInfo(object):
-#    """
-#    An object that contains information related to
-#    whether something is supported or not.
-#
-#    This class has two properties:
-#    is_supported (bool) - Indicates whether the thing is supported
-#    message (str) - A message about why the thing is or is not supported. Usually used to indicate why \
-#     something isn't supported.
-#    """
+# TODO: Can SupportInfo be moved somewhere else that makes more sense?
 
-#    def __init__(self, is_supported, message=None):
-#        """
-#        Arguments:
-#            is_supported (bool) - Indicates whether the thing is supported
-#            message (str) - A message about why the thing is or is not supported **optional**. \
-#            Usually used to indicate why something isn't supported.
-#        """
-#        self.is_supported = is_supported
-#        self.message = message
+class SupportInfo(object):
+    """
+    An object that contains information related to
+    whether something is supported or not.
+
+    This class has two properties:
+    is_supported (bool) - Indicates whether the thing is supported
+    message (str) - A message about why the thing is or is not supported. Usually used to indicate why \
+     something isn't supported.
+    """
+
+    def __init__(self, is_supported, message=None):
+        """
+        Arguments:
+            is_supported (bool) - Indicates whether the thing is supported
+            message (str) - A message about why the thing is or is not supported **optional**. \
+            Usually used to indicate why something isn't supported.
+        """
+        self.is_supported = is_supported
+        self.message = message
 
 
 class _BindingBase(models.Model):
@@ -440,7 +442,7 @@ class CollectionManagementService(_TaxiiService):
             or the DataCollection has enabled=False.
         """
         try:
-            data_collection = self.advertised_collections.get(collection_name=smr.collection_name, enabled=True)
+            data_collection = self.advertised_collections.get(collection_name=collection_name, enabled=True)
         except models.DataCollection.DoesNotExist:
             raise StatusMessageException(in_response_to,
                                          ST_NOT_FOUND,
@@ -1572,13 +1574,13 @@ class Subscription(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
-    def validate_active(self):
+    def validate_active(self, in_response_to):
         """
         If the status is not active, raises a StatusMessageException.
         Otherwise, has no effect
         """
         if not self.status == SS_ACTIVE:
-            raise StatusMessageException(poll_request.message_id,
+            raise StatusMessageException(in_response_to,
                                          ST_FAILURE,
                                          'The Subscription is not active!')
 
@@ -1613,7 +1615,7 @@ class Subscription(models.Model):
         model
         """
         subscription_params = tm11.SubscriptionParameters(response_type=self.response_type,
-                                                          content_bindings=get_supported_content(self))
+                                                          content_bindings=self.get_supported_content(self))
 
         if self.query:
             subscription_params.query = self.query.to_query_11()
