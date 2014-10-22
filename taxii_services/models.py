@@ -1287,6 +1287,16 @@ class PollService(_TaxiiService):
     requires_subscription = models.BooleanField(default=False)
     max_result_size = models.IntegerField(blank=True, null=True)  # Blank means "no limit"
 
+    def clean(self):
+        """
+        Perform some validation on the model
+
+        :return: Nothing
+        """
+
+        if self.max_result_size is not None and self.max_result_size < 1:
+            raise ValidationError("Max Result Size must be blank or greater than 1!")
+
     def get_message_handler(self, taxii_message):
         if taxii_message.message_type == MSG_POLL_REQUEST:
             return self.poll_request_handler
