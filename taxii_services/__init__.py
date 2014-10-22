@@ -32,7 +32,7 @@ InboxMessageHandler = imh.InboxMessageHandler
 PollFulfillmentRequest11Handler = pfrh.PollFulfillmentRequest11Handler
 
 PollRequest10Handler = prh.PollRequest10Handler
-PollRequest11Handler = prh.PollRequest10Handler
+PollRequest11Handler = prh.PollRequest11Handler
 PollRequestHandler = prh.PollRequestHandler
 
 SubscriptionRequest10Handler = srh.SubscriptionRequest10Handler
