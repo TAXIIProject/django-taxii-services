@@ -66,7 +66,7 @@ class PollRequestProperties(object):
         else:
             prp.response_type = None
             prp.content_bindings = prp.collection.get_binding_intersection_10(poll_request.content_bindings, prp.message_id)
-            prp.delivery_parameters = poll_request.delivery_parameters
+            prp.delivery_parameters = None
 
         if prp.collection.type != CT_DATA_FEED:  # Only Data Feeds existed in TAXII 1.0
             raise StatusMessageException(poll_request.message_id,

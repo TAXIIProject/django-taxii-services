@@ -130,7 +130,6 @@ def add_basics():
     add_query_basics()
     add_query_handlers()
     add_supported_queries()
-    add_content_bindings()
     add_collections()
 
 

@@ -830,7 +830,41 @@ class PollRequestTests11(TestCase):
 
 
 class PollRequestTests10(TestCase):
-    pass
+
+    def setUp(self):
+        settings.DEBUG = True
+        add_basics()
+        add_poll_service()
+        add_test_content(collection='default')
+
+    def test_01(self):
+        """
+        Test an invalid collection name
+        """
+        pr = tm10.PollRequest(message_id=generate_message_id(),
+                              feed_name='INVALID_COLLECTION_NAME_13820198320')
+
+        make_request('/test_poll_1/',
+                     pr.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_10, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_NOT_FOUND,
+                     sd_keys=[SD_ITEM])
+
+    def test_02(self):
+        """
+        Test a correct poll request
+        """
+
+        pr = tm10.PollRequest(message_id=generate_message_id(),
+                              feed_name='default')
+        msg = make_request('/test_poll_1/',
+                           pr.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_10, False),
+                           MSG_POLL_RESPONSE)
+
+        if len(msg.content_blocks) != 5:
+            raise ValueError("Expected 5 content blocks, got %s" % len(msg.content_blocks))
 
 
 class PollFulfillmentTests11(TestCase):

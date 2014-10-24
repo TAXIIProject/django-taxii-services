@@ -691,14 +691,51 @@ class DataCollection(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
+    def get_binding_intersection_10(self, binding_list, in_response_to):
+        """
+        Given a list of tm10.ContentBinding objects, return the ContentBindingAndSubtypes that are in this
+        Data Collection
+
+        :param binding_list: A list of strings representing ContentBinding IDs
+        :param in_response_to: The request message's message ID. Used if a StatusMessageException is raised
+        :return: A list of ContentBindingAndSubtype objects representing the intersection of this Data Collection's\
+                 supported Content Bindings and binding_list.
+        """
+
+        if binding_list is None or len(binding_list) == 0:
+            return None
+
+        matching_cbas = []
+
+        for content_binding in binding_list:
+            try:
+                cb = ContentBindingAndSubtype.objects.get(content_binding__binding_id=content_binding,
+                                                          subtype=None)  # Subtypes are not in TAXII 1.0
+                matching_cbas.append(cb)
+            except ContentBindingAndSubtype.DoesNotExist:
+                pass # This is OK. Other errors are not
+
+        if len(matching_cbas) == 0:
+            if self.accept_all_content:
+                bindings = ContentBindingAndSubtype.objects.filter(subtype=None)
+            else:
+                bindings = self.supported_content.all()
+
+            supported_content = [b.binding_id for b in bindings]
+            raise StatusMessageException(in_response_to,
+                                         ST_UNSUPPORTED_CONTENT_BINDING,
+                                         status_detail={SD_SUPPORTED_CONTENT: supported_content})
+
+            return matching_cbas
+
     def get_binding_intersection_11(self, binding_list, in_response_to):
         """
         Arguments:
             binding_list - a list of tm11.ContentBinding objects
 
         Returns:
-            The intersection of this Data Collection's supported
-            Content Bindings and binding_list.
+            A list of ContentBindingAndSubtype objects representing the intersection of this Data Collection's \
+            supported Content Bindings and binding_list.
 
         Raises:
             A StatusMessageException if the intersection is

@@ -12,6 +12,8 @@ import libtaxii.messages_10 as tm10
 from libtaxii.constants import *
 from libtaxii.common import generate_message_id
 
+from datetime import timedelta
+
 
 class PollRequest11Handler(BaseMessageHandler):
     """
@@ -202,13 +204,52 @@ class PollRequest10Handler(BaseMessageHandler):
     version = "1"
 
     @classmethod
+    def get_content(cls, prp, query_kwargs):
+        """
+
+        :param prp: PollRequestProperties
+        :param query_kwargs: The parameters of the search for content
+        :return: A list of models.ContentBlock objects. Classes that override this  \
+                 method only need to return an iterable where each instance has a \
+                 'to_content_block_10()' function.
+        """
+        content = prp.collection.content_blocks.filter(**query_kwargs).order_by('timestamp_label')
+
+        return content
+
+    @classmethod
+    def create_poll_response(cls, poll_service, prp, content_blocks):
+        """
+
+        :param poll_service:
+        :param prp:
+        :param content_blocks:
+        :return:
+        """
+
+        ietl = prp.exclusive_begin_timestamp_label
+        if ietl is not None:
+            ietl += timedelta(milliseconds=1)
+
+        pr = tm10.PollResponse(message_id=generate_message_id(),
+                               in_response_to=prp.message_id,
+                               feed_name=prp.collection.name,
+                               inclusive_begin_timestamp_label=ietl,
+                               inclusive_end_timestamp_label=prp.inclusive_end_timestamp_label)
+
+        for content_block in content_blocks:
+            pr.content_blocks.append(content_block.to_content_block_10())
+
+        return pr
+
+    @classmethod
     def handle_message(cls, poll_service, poll_message, django_request):
         """
         TODO: This isn't tested
         """
         prp = PollRequestProperties.from_poll_request_10(poll_service, poll_message)
-        db_kwargs = prp.get_db_kwargs()
-        content_blocks = cls.get_content(prp, db_kwargs)
+        query_kwargs = prp.get_db_kwargs()
+        content_blocks = cls.get_content(prp, query_kwargs)
         response = cls.create_poll_response(poll_service, prp, content_blocks)
         return response
 
