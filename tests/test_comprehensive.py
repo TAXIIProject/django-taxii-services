@@ -224,7 +224,7 @@ class ProtocolTests(TestCase):
         pass
 
 
-class InboxTests(TestCase):
+class InboxTests11(TestCase):
     """
     Test various aspects of the
     taxii_handlers.InboxMessage11Handler
@@ -331,40 +331,6 @@ class InboxTests(TestCase):
 
     def test_11(self):
         """
-        Send a TAXII 1.0 Inbox Message to /test_inbox_1/. Will always
-        fail because /test_inbox_1/ requires a DCN and TAXII 1.0 cannot specify that.
-        """
-        inbox = tm10.InboxMessage(generate_message_id())
-        make_request('/test_inbox_1/',
-                     inbox.to_xml(),
-                     get_headers(VID_TAXII_SERVICES_10, False),
-                     MSG_STATUS_MESSAGE,
-                     st=ST_FAILURE)
-
-    def test_12(self):
-        """
-        Send a TAXII 1.0 Inbox Message to /test_inbox_2/
-        """
-        inbox = tm10.InboxMessage(generate_message_id())
-        make_request('/test_inbox_2/',
-                     inbox.to_xml(),
-                     get_headers(VID_TAXII_SERVICES_10, False),
-                     MSG_STATUS_MESSAGE,
-                     st=ST_SUCCESS)
-
-    def test_13(self):
-        """
-        Send a TAXII 1.0 Inbox Message to /test_inbox_3/
-        """
-        inbox = tm10.InboxMessage(generate_message_id())
-        make_request('/test_inbox_3/',
-                     inbox.to_xml(),
-                     get_headers(VID_TAXII_SERVICES_10, False),
-                     MSG_STATUS_MESSAGE,
-                     st=ST_SUCCESS)
-
-    def test_14(self):
-        """
         Replicate the InboxClientScript
         """
         from libtaxii.scripts.inbox_client import InboxClient11Script
@@ -379,6 +345,63 @@ class InboxTests(TestCase):
         make_request('/test_inbox_1/',
                      inbox.to_xml(),
                      get_headers(VID_TAXII_SERVICES_11, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_SUCCESS)
+
+
+class InboxTests10(TestCase):
+
+    def setUp(self):
+        settings.DEBUG = True
+        add_basics()
+        add_inbox_service()
+
+    def test_01(self):
+        """
+        Send a TAXII 1.0 Inbox Message to /test_inbox_1/. Will always
+        fail because /test_inbox_1/ requires a DCN and TAXII 1.0 cannot specify that.
+        """
+        inbox = tm10.InboxMessage(generate_message_id())
+        make_request('/test_inbox_1/',
+                     inbox.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_10, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_DESTINATION_COLLECTION_ERROR)  # TODO: Is this the right behavior? it's kind of a TAXII 1.1 error for a TAXII 1.0 request but not really
+
+    def test_02(self):
+        """
+        Send a TAXII 1.0 Inbox Message to /test_inbox_2/
+        """
+        inbox = tm10.InboxMessage(generate_message_id())
+        make_request('/test_inbox_2/',
+                     inbox.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_10, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_SUCCESS)
+
+    def test_03(self):
+        """
+        Send a TAXII 1.0 Inbox Message to /test_inbox_3/
+        """
+        inbox = tm10.InboxMessage(generate_message_id())
+        make_request('/test_inbox_3/',
+                     inbox.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_10, False),
+                     MSG_STATUS_MESSAGE,
+                     st=ST_SUCCESS)
+
+    def test_04(self):
+        """
+        Send a TAXII 1.0 Inbox Message to /test_inbox_3/ with two content blocks
+        """
+        cb1 = tm10.ContentBlock(content_binding=CB_STIX_XML_111, content=stix_watchlist_111)
+        cb2 = tm10.ContentBlock(content_binding=CB_STIX_XML_111, content=stix_watchlist_111)
+
+        inbox = tm10.InboxMessage(message_id=generate_message_id(),
+                                  content_blocks=[cb1, cb2])
+        make_request('/test_inbox_3/',
+                     inbox.to_xml(),
+                     get_headers(VID_TAXII_SERVICES_10, False),
                      MSG_STATUS_MESSAGE,
                      st=ST_SUCCESS)
 

@@ -599,6 +599,36 @@ class ContentBlock(models.Model):
         return cb
 
     @staticmethod
+    def from_content_block_10(content_block, inbox_message=None):
+        """
+        Returns a ContentBlock model object
+        based on a tm10.ContentBlock object
+
+        NOTE THAT THIS FUNCTION DOES NOT CALL save() on the
+        returned model.
+
+        :param content_block: A tm10.ContentBlock
+        :param inbox_message: A tm10.InboxMessage
+        :return: An **unsaved** models.ContentBlock instance
+        """
+        binding_id = content_block.content_binding
+        cb = ContentBlock()
+        try:
+            cbas = ContentBindingAndSubtype.objects.get(content_binding__binding_id=binding_id,
+                                                        subtype__subtype_id=None)
+            cb.content_binding_and_subtype = cbas
+        except ContentBindingAndSubtype.DoesNotExist as dne:
+            raise StatusMessageException()
+
+        cb.content = content_block.content
+        if content_block.padding:
+            cb.padding = content_block.padding
+        if inbox_message:
+            cb.inbox_message = inbox_message
+        # TODO: What about signatures?
+        return cb
+
+    @staticmethod
     def from_content_block_11(content_block, inbox_message=None):
         """
         Returns a ContentBlock model object
@@ -635,7 +665,7 @@ class ContentBlock(models.Model):
             cb.message = content_block.message
         if inbox_message:
             cb.inbox_message = inbox_message
-
+        #  TODO: What about signatures?
         return cb
 
     def __unicode__(self):
@@ -1048,6 +1078,40 @@ class InboxMessage(models.Model):
     content_blocks_saved = models.IntegerField()
 
     @staticmethod
+    def from_inbox_message_10(inbox_message, django_request, received_via=None):
+        """
+        Creates an InboxMessage model object from a tm10.InboxMessage object.
+
+        NOTE THAT THIS FUNCTION DOES NOT CALL .save()
+
+        :param inbox_message: The tm10.InboxMessage to create as a DB object
+        :param django_request: The django request that contained the inbox message
+        :param receved_via: The inbox service this Inbox Message was received via
+        :return: An **unsaved** models.InboxMessage object
+        """
+
+        inbox_message_db = InboxMessage()
+        inbox_message_db.message_id = inbox_message.message_id
+        inbox_message_db.sending_ip = django_request.META.get('REMOTE_ADDR', None)
+
+        if inbox_message.subscription_information:
+            si = inbox_message.subscription_information
+            inbox_message_db.collection_name = si.feed_name
+            inbox_message_db.subscription_id = si.subscription_id
+            # TODO: Match up exclusive vs inclusive
+            inbox_message_db.exclusive_begin_timestamp_label = si.inclusive_begin_timestamp_label
+            inbox_message_db.inclusive_end_timestamp_label = si.inclusive_end_timestamp_label
+
+        if received_via:
+            inbox_message_db.received_via = received_via
+
+        inbox_message_db.original_message = inbox_message.to_xml()
+        inbox_message_db.content_block_count = len(inbox_message.content_blocks)
+        inbox_message_db.content_blocks_saved = 0
+
+        return inbox_message_db
+
+    @staticmethod
     def from_inbox_message_11(inbox_message, django_request, received_via=None):
         """
         Create an InboxMessage model object
@@ -1132,22 +1196,22 @@ class InboxService(_TaxiiService):
 
         # 1
         if self.accept_all_content:
-            return True
+            return SupportInfo(True, None)
 
         # 2
         if len(self.supported_content.filter(content_binding=cbas.content_binding, subtype=None)) > 0:
-            return True
+            return SupportInfo(True, None)
 
         # 2a (e.g., subtype = None so #3 would end up being the same check as #2)
         if not cbas.subtype:  # No further checking can be done
-            return False
+            return SupportInfo(False, None)
 
         # 3
         if len(self.supported_content.filter(content_binding=cbas.content_binding, subtype=cbas.subtype)) > 0:
-            return True
+            return SupportInfo(True, None)
 
         # 4
-        return False
+        return SupportInfo(False, None)
 
     def validate_destination_collection_names(self, name_list, in_response_to):
         """
@@ -1157,6 +1221,9 @@ class InboxService(_TaxiiService):
         Raises:
             A StatusMessageException if any Destination Collection Names are invalid.
         """
+        if name_list is None:
+            name_list = []
+
         num = len(name_list)
         if self.destination_collection_status == REQUIRED[0] and num == 0:
             raise StatusMessageException(in_response_to,
