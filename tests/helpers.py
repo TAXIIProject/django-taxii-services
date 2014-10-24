@@ -7,6 +7,7 @@ import libtaxii.messages_11 as tm11
 from copy import deepcopy
 from .constants import *
 from taxii_services.models import *
+from django.test import Client
 import os
 
 
@@ -45,6 +46,62 @@ def get_headers(taxii_services_version, is_secure):
         return deepcopy(TAXII_10_HTTP_Headers)
     else:
         raise ValueError("Unknown combination for taxii_services_version and is_secure!")
+
+
+def make_request(path='/', post_data=None, header_dict=None,
+                 response_msg_type=None, st=None, sd_keys=None, expected_code=200):
+    """
+    Makes a TAXII Request. Allows for a lot of munging of the request to test various aspects of the message
+
+    :param path:
+    :param post_data:
+    :param header_dict:
+    :param response_msg_type: Expected Response message type (e.g., MSG_STATUS_MESSAGE)
+    :param st: Expected status type (e.g., ST_SUCCESS). Only applies if response_msg_type == MSG_STATUS_MESSAGE
+    :param sd_keys: Expected status details (e.g., SD_ITEM). Only applies if response_msg_type == MSG_STATUS_MESSSAGE
+    :param expected_code: Expected HTTP response code (defaults to 200)
+    :return: A TAXII Message
+    """
+    c = Client()
+
+    if not header_dict:
+        # Use TAXII 1.1 HTTP Headers
+        header_dict = get_headers(VID_TAXII_SERVICES_11, is_secure=False)
+        header_dict['Accept'] = 'application/xml'
+        header_dict['X-TAXII-Accept'] = VID_TAXII_XML_11
+
+    if post_data:  # Make a POST
+        resp = c.post(path, data=post_data, content_type='application/xml', **header_dict)
+    else:  # Make a GET
+        resp = c.get(path, **header_dict)
+
+    if resp.status_code != expected_code:
+        msg = resp.content
+        raise ValueError("Response code was not %s. Was: %s.\r\n%s" %
+                         (str(expected_code), str(resp.status_code), msg))
+
+    msg = get_message_from_client_response(resp, '0')
+    msg_xml = msg.to_xml(pretty_print=True)
+    if len(msg_xml) > 4096:
+        msg_xml = "MESSAGE WAS TOO BIG TO PRINT: %s" % len(msg_xml)
+
+    if (response_msg_type and
+        msg.message_type != response_msg_type):
+        raise ValueError("Incorrect message type sent in response. Expected: %s. Got: %s.\r\n%s" %
+                         (response_msg_type, msg.message_type, msg_xml))
+
+    if st:
+        if msg.status_type != st:
+            raise ValueError("Incorrect status type. Expected %s got %s)\r\n%s" %
+                             (st, msg.status_type, msg_xml))
+
+    if sd_keys:
+        for key in sd_keys:
+            if key not in msg.status_detail:
+                raise ValueError("SD Key not present: %s\r\n%s" %
+                                 (key, msg_xml))
+
+    return msg
 
 
 def add_protocol_bindings():
