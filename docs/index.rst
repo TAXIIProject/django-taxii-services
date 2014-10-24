@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to django-taxii-services' documentation!
-=================================================
+================================================
 
 **django-taxii-services** is an installable Django app that:
 
