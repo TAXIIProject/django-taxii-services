@@ -29,6 +29,7 @@ TAXII_11_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_11_SCHEMA
 xtct_map = {VID_TAXII_XML_10: TAXII_10_ParseTuple,
             VID_TAXII_XML_11: TAXII_11_ParseTuple}
 
+PV_ERR = "There was an error parsing and validating the request message."
 
 @csrf_exempt
 def service_router(request, path, do_validate=True):
@@ -49,12 +50,22 @@ def service_router(request, path, do_validate=True):
         raise StatusMessageException('0', ST_BAD_MESSAGE, 'The X-TAXII-Content-Type Header is not supported.')
 
     if do_validate:
+        msg = None  # None means no error, a non-None value means an error happened
         try:
             result = parse_tuple.validator.validate_string(request.body)
             if not result.valid:
-                raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not schema valid: %s' % [err for err in result.error_log])
+                if settings.DEBUG is True:
+                    msg = 'Request was not schema valid: %s' % [err for err in result.error_log]
+                else:
+                    msg = PV_ERR
         except XMLSyntaxError as e:
-            raise StatusMessageException('0', ST_BAD_MESSAGE, 'Request was not well-formed XML: %s' % str(e))
+            if settings.DEBUG is True:
+                msg = 'Request was not well-formed XML: %s' % str(e)
+            else:
+                msg = PV_ERR
+
+        if msg is not None:
+            raise StatusMessageException('0', ST_BAD_MESSAGE, msg)
 
     try:
         taxii_message = parse_tuple.parser(request.body)
