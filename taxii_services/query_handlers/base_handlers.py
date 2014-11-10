@@ -5,6 +5,7 @@ from ..exceptions import StatusMessageException
 
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
+from libtaxii.common import parse
 from ..models import SupportInfo
 
 import traceback
@@ -611,7 +612,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
 
         result_list = []
         for content_block in content_blocks:
-            etree_content = etree.XML(content_block.content)
+            etree_content = parse(content_block.content)
             if cls.evaluate_criteria(prp, etree_content, prp.query.criteria):
                 result_list.append(content_block)
 
