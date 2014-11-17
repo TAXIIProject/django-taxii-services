@@ -49,7 +49,8 @@ def get_headers(taxii_services_version, is_secure):
 
 
 def make_request(path='/', post_data=None, header_dict=None,
-                 response_msg_type=None, st=None, sd_keys=None, expected_code=200):
+                 response_msg_type=None, st=None, sd_keys=None, expected_code=200,
+                 num_subscription_instances=None, subscription_status=None, subscription_id=None):
     """
     Makes a TAXII Request. Allows for a lot of munging of the request to test various aspects of the message
 
@@ -100,6 +101,20 @@ def make_request(path='/', post_data=None, header_dict=None,
             if key not in msg.status_detail:
                 raise ValueError("SD Key not present: %s\r\n%s" %
                                  (key, msg_xml))
+
+    if num_subscription_instances is not None:
+        if len(msg.subscription_instances) != num_subscription_instances:
+            raise ValueError("Expected %s subscription instances, got %s" % (num_subscription_instances, len(msg.subscription_instances)))
+
+    if subscription_status is not None:
+        for si in msg.subscription_instances:
+            if si.status != subscription_status:
+                raise ValueError("Expected status of %s, got %s" % (subscription_status, si.status))
+
+    if subscription_id is not None:
+        for si in msg.subscription_instances:
+            if si.subscription_id != subscription_id:
+                raise ValueError("Expected a subs id of %s, got %s" % (subscription_id, si.subscription_id))
 
     return msg
 

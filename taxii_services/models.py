@@ -17,6 +17,7 @@ from django.db.models.signals import post_save, pre_save
 from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 from itertools import chain
+import uuid
 import sys
 
 MAX_NAME_LENGTH = 256
@@ -442,8 +443,8 @@ class CollectionManagementService(_TaxiiService):
             or the DataCollection has enabled=False.
         """
         try:
-            data_collection = self.advertised_collections.get(collection_name=collection_name, enabled=True)
-        except models.DataCollection.DoesNotExist:
+            data_collection = self.advertised_collections.get(name=collection_name, enabled=True)
+        except DataCollection.DoesNotExist:
             raise StatusMessageException(in_response_to,
                                          ST_NOT_FOUND,
                                          status_detail={'ITEM': collection_name})
@@ -1675,12 +1676,12 @@ class Subscription(models.Model):
     """
     Model for Subscriptions
     """
-    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True, default=uuid.uuid4) #TODO: See #26
     data_collection = models.ForeignKey('DataCollection')
     response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=RESPONSE_CHOICES, default=RT_FULL)
     accept_all_content = models.BooleanField(default=False)
     supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
-    query = models.TextField(blank=True)
+    query = models.TextField(blank=True, null=True)
     # push_parameters = models.ForeignKey(PushParameters)  # TODO: Create a push parameters object
     delivery = models.CharField(max_length=MAX_NAME_LENGTH, choices=DELIVERY_CHOICES, default=SUBS_POLL)
     status = models.CharField(max_length=MAX_NAME_LENGTH, choices=SUBSCRIPTION_STATUS_CHOICES, default=SS_ACTIVE)
@@ -1718,7 +1719,7 @@ class Subscription(models.Model):
         push_params = None  # TODO: Implement this
         poll_instances = None  # TODO: Implement this
 
-        si = tm10.SubscriptionInstance(subscription_id=self.subscription_id,
+        si = tm10.SubscriptionInstance(subscription_id=str(self.subscription_id),
                                        push_parameters=push_params,
                                        poll_instances=poll_instances)
         return si
@@ -1729,15 +1730,14 @@ class Subscription(models.Model):
         model
         """
         subscription_params = tm11.SubscriptionParameters(response_type=self.response_type,
-                                                          content_bindings=self.get_supported_content(self))
+                                                          content_bindings=self.supported_content.all())
 
         if self.query:
             subscription_params.query = self.query.to_query_11()
 
         push_params = None  # TODO: Implement this
         poll_instances = None  # TODO: Implement this
-
-        si = tm11.SubscriptionInstance(subscription_id=self.subscription_id,
+        si = tm11.SubscriptionInstance(subscription_id=str(self.subscription_id),
                                        status=self.status,
                                        subscription_parameters=subscription_params,
                                        push_parameters=push_params,

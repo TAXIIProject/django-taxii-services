@@ -42,8 +42,9 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
             1. If the subscription exits, set the state to Unsubscribed
             2. Return a response indicating success
         """
-        if subscription:
-            subscription.status == SS_UNSUBSCRIBED
+
+        if subscription is not None:
+            subscription.status = SS_UNSUBSCRIBED
             subscription.save()
             si = subscription.to_subscription_instance_11()
         else:
@@ -124,44 +125,41 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         return subscription_list
 
     @staticmethod
-    def subscribe(smr):
+    def subscribe(subscription_management_request, data_collection):
         """
-        This method needs to be tested before it's
-        behavior can be documented.
+
+        :param cms:
+        :param smr:
+        :return:
         """
-        # TODO: Check for supported push methods (e.g., inbox protocol, delivery message binding)
 
-        # TODO: Check for unsupported / unknown Content Bindings / Subtypes
+        smr = subscription_management_request
 
-        # Supporting all is not an error
-        accept_all_content = False
-        if len(smr.subscription_parameters.content_bindings) == 0:  # All bindings are supported
+        if len(smr.subscription_parameters.content_bindings) == 0:
             accept_all_content = True
+            supported_contents = None
+        else:
+            accept_all_content = False
+            supported_contents = data_collection.get_binding_intersection_11(smr.subscription_parameters.content_bindings)
 
-        # Iterate over specified content_bindings
-        supported_contents = []
-        for content_binding in smr.subscription_parameters.content_bindings:
-            binding_id = content_binding.binding_id
-            if len(content_binding.subtype_ids) == 0:
-                # TODO: This probably needs to be in a try/catch block that returns the correct status message
-                cbas = data_collection.supported_content.get(content_binding__binding_id=binding_id,
-                                                             subtype__subtype_id=None)
-                supported_contents.append(cbas)
-            else:
-                for subtype_id in content_binding.subtype_ids:
-                    # TODO: This probably needs to be in a try/catch block that returns the correct status message
-                    cbas = data_collection.supported_content.get(content_binding__binding_id=binding_id,
-                                                                 subtype__subtype_id=subtype_id)
-                    supported_contents.append(cbas)
-
+        # TODO: Check for supported push methods (e.g., inbox protocol, delivery message binding)
         # TODO: Check the query format and see if it works
         # TODO: Implement query
 
+        # TODO: This has some work to do. Need to consider supported_content and delivery_parameters in the
+        #       Get or create call
+
         # 5. Attempts to create a duplicate subscription should just return the existing subscription
-        subscription = models.Subscription.objects.get_or_create(response_type=smr.subscription_parameters.response_type,
-                                                                 accept_all_content=accept_all_content,
-                                                                 supported_content=supported_contents,  # TODO: This is probably wrong
-                                                                 query=None)  # TODO: Implement query
+        subscription, created = models.Subscription.objects.get_or_create(response_type=smr.subscription_parameters.response_type,
+                                                                          data_collection=data_collection,
+                                                                          accept_all_content=accept_all_content,
+                                                                          #supported_content=supported_contents,  # TODO: This is probably wrong
+                                                                          query=None)  # TODO: Implement query
+        if supported_contents is not None:
+            subscription.supported_content = supported_contents
+            subscription.save()
+        print 'created subscription! id=', subscription.subscription_id
+        print 'total num of subs: ', len(models.Subscription.objects.all())
         return subscription.to_subscription_instance_11()
 
     @classmethod
@@ -173,12 +171,12 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         #. Validate a variety of aspects of the request message
         #. If there's a subscription_id in the request message, attempt to identify that \
            subscription in the database
-        #. If Action == Subscribe, call `subscribe(request)`
-        #. If Action == Unsubscribe, call `unsubscribe(request, subscription)`
-        #. If Action == Pause, call `pause(request, subscription)`
-        #. If Action == Resume, call `resume(request, subscription)`
-        #. If Action == Status and there is a `subscription_id, call single_status(request, subscription)`
-        #. If Action == Status and there is not a `subscription_id, call `multi_status(request)`
+        #. If Action == Subscribe, call `subscribe(service, data_collection, request)`
+        #. If Action == Unsubscribe, call `unsubscribe(service, request, subscription)`
+        #. If Action == Pause, call `pause(service, request, subscription)`
+        #. If Action == Resume, call `resume(service, request, subscription)`
+        #. If Action == Status and there is a `subscription_id, call single_status(service, request, subscription)`
+        #. If Action == Status and there is not a `subscription_id, call `multi_status(service, request)`
         #. Return a CollectionManageSubscriptionResponse
 
         """
@@ -204,7 +202,7 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         # |Resume      |    Required     |     Needed        |
         # |Status      |    Optional     | Yes, if specified |
 
-        if smr.action not in ACT_TYPES:
+        if smr.action not in ACT_TYPES_11:
             raise StatusMessageException(smr.message_id,
                                          ST_BAD_MESSAGE,
                                          message="The specified value of Action was invalid.")
@@ -216,14 +214,14 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
                                          message="The %s action requires a subscription id." % smr.action)
 
         # Attempt to identify a subscription in the database
+        subscription = None
         if smr.subscription_id:
             try:
-                subscription = models.Subscription.objects.get(subscription_id=request.subscription_id)
+                subscription = models.Subscription.objects.get(subscription_id=smr.subscription_id)
             except models.Subscription.DoesNotExist:
                 subscription = None  # This is OK for certain circumstances
 
-        # If subscription is None for Unsubscribe, that's OK, but it's not OK
-        # for Pause/Resume
+        # If subscription is None for Unsubscribe, that's OK, but it's not OK for Pause/Resume
         if subscription is None and smr.action in (ACT_PAUSE, ACT_RESUME):
             raise StatusMessageException(smr.message_id,
                                          ST_NOT_FOUND,
@@ -232,14 +230,14 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         # Create a stub ManageCollectionSubscriptionResponse
         response = tm11.ManageCollectionSubscriptionResponse(message_id=generate_message_id(),
                                                              in_response_to=smr.message_id,
-                                                             collection_name=data_collection.collection_name)
+                                                             collection_name=data_collection.name)
 
         # This code can probably be optimized
         if smr.action == ACT_SUBSCRIBE:
-            subs_instance = cls.subscribe(smr)
+            subs_instance = cls.subscribe(smr, data_collection)
             response.subscription_instances.append(subs_instance)
         elif smr.action == ACT_UNSUBSCRIBE:
-            subs_instance = cls.subscribe(smr)
+            subs_instance = cls.unsubscribe(smr, subscription)
             response.subscription_instances.append(subs_instance)
         elif smr.action == ACT_PAUSE:
             subs_instance = cls.pause(smr, subscription)
@@ -247,16 +245,16 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         elif smr.action == ACT_RESUME:
             subs_instance = cls.resume(smr, subscription)
             response.subscription_instances.append(subs_instance)
-        elif smr.action == ACT_STATUS and subscription:
+        elif smr.action == ACT_STATUS and subscription is not None:
             subs_instance = cls.single_status(smr, subscription)
             response.subscription_instances.append(subs_instance)
-        elif smr.action == ACT_STATUS and not subscription:
+        elif smr.action == ACT_STATUS and subscription is None:
             subs_instances = cls.multi_status(smr)
             for subs_instance in subs_instances:
                 response.subscription_instances.append(subs_instance)
         else:
             raise ValueError("Unknown Action!")
-
+        # print response.to_xml(pretty_print=True)
         return response
 
 
