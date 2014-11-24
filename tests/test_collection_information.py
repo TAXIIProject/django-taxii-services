@@ -6,6 +6,7 @@ from django.conf import settings
 
 from helpers import *
 
+
 class CollectionInformationTests11(TestCase):
 
     def setUp(self):
@@ -22,6 +23,31 @@ class CollectionInformationTests11(TestCase):
                      cir.to_xml(),
                      get_headers(VID_TAXII_SERVICES_11, False),
                      MSG_COLLECTION_INFORMATION_RESPONSE)
+
+    def test_issue_28(self):
+        """
+        Tests issue 28. https://github.com/TAXIIProject/django-taxii-services/issues/28
+
+        :return:
+        """
+
+        # Add a disabled Inbox Service
+        add_inbox_service()
+        for inbox in InboxService.objects.all():
+            inbox.enabled = False
+            inbox.save()
+
+        cir = tm11.CollectionInformationRequest(generate_message_id())
+        msg = make_request(COLLECTION_PATH,
+                           cir.to_xml(),
+                           get_headers(VID_TAXII_SERVICES_11, False),
+                           MSG_COLLECTION_INFORMATION_RESPONSE)
+        if len(msg.collection_informations) != 1:
+            raise ValueError("Expected 1 collection in response, got %s" % len(msg.collection_informations))
+        if len(msg.collection_informations[0].receiving_inbox_services) > 0:
+            raise ValueError("Expected 0 Receiving Inbox Services, got %s" %
+                             len(msg.collection_informations[0].receiving_inbox_services))
+        print msg.to_xml(pretty_print=True)
 
 
 class FeedInformationTests10(TestCase):

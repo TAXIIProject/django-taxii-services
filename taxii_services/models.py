@@ -830,6 +830,7 @@ class DataCollection(models.Model):
             A tm11.CollectionInformation object
             based on this model
         """
+
         ci = tm11.CollectionInformation(collection_name=self.name,
                                         collection_description=self.description,
                                         supported_contents=self.get_supported_content_11(),
@@ -906,7 +907,7 @@ class DataCollection(models.Model):
         for this Data Collection
         """
         poll_instances = []
-        poll_services = PollService.objects.filter(data_collections=self)
+        poll_services = PollService.objects.filter(data_collections=self, enabled=True)
         for poll_service in poll_services:
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
@@ -921,11 +922,13 @@ class DataCollection(models.Model):
         TAXII Poll Services that can be polled for this Data Collection
         """
         poll_instances = []
-        poll_services = PollService.objects.filter(data_collections=self)
+        poll_services = PollService.objects.filter(data_collections=self, enabled=True)
         for poll_service in poll_services:
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
-                poll_instance = tm11.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path, message_bindings)
+                poll_instance = tm11.PollingServiceInstance(supported_protocol_binding.binding_id,
+                                                            poll_service.path,
+                                                            message_bindings)
                 poll_instances.append(poll_instance)
 
         return poll_instances
@@ -937,11 +940,14 @@ class DataCollection(models.Model):
         """
         # TODO: Probably wrong, but here's the idea
         subscription_methods = []
-        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self)
+        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self,
+                                                                                    enabled=True)
         for collection_management_service in collection_management_services:
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
-                subscription_method = tm10.SubscriptionMethod(supported_protocol_binding.binding_id, collection_management_service.path, message_bindings)
+                subscription_method = tm10.SubscriptionMethod(supported_protocol_binding.binding_id,
+                                                              collection_management_service.path,
+                                                              message_bindings)
                 subscription_methods.append(subscription_method)
 
         return subscription_methods
@@ -953,7 +959,8 @@ class DataCollection(models.Model):
         """
         # TODO: Probably wrong, but here's the idea
         subscription_methods = []
-        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self)
+        collection_management_services = CollectionManagementService.objects.filter(advertised_collections=self,
+                                                                                    enabled=True)
         for collection_management_service in collection_management_services:
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
@@ -968,7 +975,8 @@ class DataCollection(models.Model):
         Inbox Services that accept content for this Data Collection.
         """
         receiving_inbox_services = []
-        inbox_services = InboxService.objects.filter(destination_collections=self)
+        inbox_services = InboxService.objects.filter(destination_collections=self, enabled=True)
+
         for inbox_service in inbox_services:
             message_bindings = [mb.binding_id for mb in inbox_service.supported_message_bindings.all()]
             for supported_protocol_binding in inbox_service.supported_protocol_bindings.all():

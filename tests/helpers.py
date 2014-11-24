@@ -215,7 +215,7 @@ def add_collection_service():
                                       collection_information_handler=cih,
                                       subscription_management_handler=smh)
     cis.save()
-    cis.advertised_collections = DataCollection.objects.filter(name='default')
+    cis.advertised_collections = [DataCollection.objects.get(name='default')]
     cis.save()
 
 
@@ -239,6 +239,8 @@ def add_inbox_service():
                            destination_collection_status=REQUIRED[0],
                            accept_all_content=True)
     inbox_1.save()
+    inbox_1.supported_message_bindings = MessageBinding.objects.all()
+    inbox_1.supported_protocol_bindings = ProtocolBinding.objects.all()
     inbox_1.destination_collections = DataCollection.objects.filter(name='default')
     inbox_1.save()
 
@@ -250,6 +252,8 @@ def add_inbox_service():
                            destination_collection_status=OPTIONAL[0],
                            accept_all_content=True)
     inbox_2.save()
+    inbox_2.supported_message_bindings = MessageBinding.objects.all()
+    inbox_2.supported_protocol_bindings = ProtocolBinding.objects.all()
     inbox_2.destination_collections = DataCollection.objects.filter(name='default')
     inbox_2.save()
 
@@ -260,6 +264,9 @@ def add_inbox_service():
                            inbox_message_handler=ih,
                            destination_collection_status=PROHIBITED[0],
                            accept_all_content=True)
+    inbox_3.save()
+    inbox_3.supported_message_bindings = MessageBinding.objects.all()
+    inbox_3.supported_protocol_bindings = ProtocolBinding.objects.all()
     inbox_3.save()
 
 
