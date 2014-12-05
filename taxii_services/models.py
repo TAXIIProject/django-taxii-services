@@ -1306,7 +1306,7 @@ class InboxService(_TaxiiService):
         return service_instances
 
     def to_service_instances_11(self):
-        service_instances = super(InboxService, self).to_service_instances_10()
+        service_instances = super(InboxService, self).to_service_instances_11()
         if self.accept_all_content:
             return service_instances
 
