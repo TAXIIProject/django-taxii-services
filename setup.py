@@ -19,7 +19,12 @@ def get_version():
 if sys.version_info < (2, 6):
     raise Exception('django-taxii-services requires Python 2.6 or higher.')
 
-install_requires = ['libtaxii>=1.1.103', 'django>=1.7.0', 'python-dateutil>=1.4.1', 'lxml>=2.2.3']
+install_requires = [
+    'Django>=1.7.0',
+    'libtaxii>=1.1.105',
+    'lxml>=2.2.3',
+    'python-dateutil>=1.4.1',
+]
 
 with open("README.rst") as f:
     long_description = f.read()
