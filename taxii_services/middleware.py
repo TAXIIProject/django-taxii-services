@@ -7,8 +7,10 @@ from .exceptions import StatusMessageException
 from libtaxii.constants import *
 
 from django.http import HttpResponseServerError, HttpResponse
-import logging
+from models import SiteConfiguration
 from django.conf import settings
+
+logger = SiteConfiguration.get_logger(__name__)
 
 
 class StatusMessageExceptionMiddleware(object):
@@ -29,7 +31,7 @@ class StatusMessageExceptionMiddleware(object):
 
         if not isinstance(exception, StatusMessageException):
             return None  # This class only handles StatusMessageExceptions
-
+        logger.debug("Entering StatusMessageExceptionMiddleware.process_exception")
         version = None
 
         a = request.META.get('HTTP_ACCEPT', None)
@@ -64,4 +66,5 @@ class StatusMessageExceptionMiddleware(object):
             version = VID_TAXII_SERVICES_11
 
         response_headers = handlers.get_headers(version, request.is_secure())
+        logger.debug("Leaving StatusMessageExceptionMiddleware.process_exception")
         return handlers.HttpResponseTaxii(sm.to_xml(pretty_print=True), response_headers)

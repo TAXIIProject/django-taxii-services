@@ -126,3 +126,6 @@ def register_admins(admin_list=None):
     admin.site.register(models.SupportedQuery, SupportedQueryAdmin)
     admin.site.register(models.QueryHandler, QueryHandlerAdmin)
     # admin.site.register(models.QueryScope, QueryScopeAdmin)
+
+    from solo.admin import SingletonModelAdmin
+    admin.site.register(models.SiteConfiguration, SingletonModelAdmin)

@@ -13,12 +13,13 @@ from libtaxii.constants import *
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from solo.models import SingletonModel
 from django.db.models.signals import post_save, pre_save
-from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 from itertools import chain
 import uuid
 import sys
+import logging
 
 MAX_NAME_LENGTH = 256
 
@@ -121,8 +122,20 @@ ALLOWED_SCOPE = ('ALLOWED', 'Allowed')
 #: Tuple of scope choices
 SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
 
+#: Debug logging
+DEBUG = (logging.DEBUG, 'DEBUG')
+#: Info Logging
+INFO = (logging.INFO, 'INFO')
+#: Warning Logging
+WARNING = (logging.WARN, 'WARNING')
+#: Error Logging
+ERROR = (logging.ERROR, 'ERROR')
+#: Critical Logging
+CRITICAL = (logging.CRITICAL, 'CRITICAL')
+LOGGING_CHOICES = (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 
 # TODO: Can SupportInfo be moved somewhere else that makes more sense?
+
 
 class SupportInfo(object):
     """
@@ -286,10 +299,18 @@ class _TaxiiService(models.Model):
             st = self.service_type
             if st == SVC_COLLECTION_MANAGEMENT:
                 st = SVC_FEED_MANAGEMENT
+
+            if pb.binding_id == VID_TAXII_HTTPS_10:
+                scheme = 'https'
+            elif pb.binding_id == VID_TAXII_HTTP_10:
+                scheme = 'http'
+            else:
+                raise ValueError("Unknown protocol binding: %s" % pb)
+
             si = tm10.ServiceInstance(service_type=st,
                                       services_version=VID_TAXII_SERVICES_11,
                                       protocol_binding=pb.binding_id,
-                                      service_address=self.path,  # TODO: Get the server's real path and prepend it here
+                                      service_address=scheme + '://' + SiteConfiguration.get_url_base() + self.path,
                                       message_bindings=[mb.binding_id for mb in self.supported_message_bindings.all()],
                                       available=self.enabled,
                                       message=self.description)
@@ -304,11 +325,19 @@ class _TaxiiService(models.Model):
         """
         service_instances = []
         for pb in self.supported_protocol_bindings.all():
+
+            if pb.binding_id == VID_TAXII_HTTPS_10:
+                scheme = 'https'
+            elif pb.binding_id == VID_TAXII_HTTP_10:
+                scheme = 'http'
+            else:
+                raise ValueError("Unknown protocol binding: %s" % pb)
+
             si = tm11.ServiceInstance(service_type=self.service_type,
                                       services_version=VID_TAXII_SERVICES_11,
                                       available=self.enabled,
                                       protocol_binding=pb.binding_id,
-                                      service_address=self.path,  # TODO: Get the server's real path and prepend it here
+                                      service_address=scheme + '://' + SiteConfiguration.get_url_base() + self.path,
                                       message_bindings=[mb.binding_id for mb in self.supported_message_bindings.all()],
                                       message=self.description)
             service_instances.append(si)
@@ -1058,11 +1087,22 @@ class DiscoveryService(_TaxiiService):
             CollectionManagementService objects that this DiscoveryService
             advertises
         """
+        logger = SiteConfiguration.get_logger(__name__)
+        logger.debug("Entering DiscoveryService.get_advertised_services")
+        ads = self.advertised_discovery_services.filter(enabled=True)
+        logger.debug("Found %s Discovery Services to advertise" % len(ads))
+        aps = self.advertised_poll_services.filter(enabled=True)
+        logger.debug("Found %s Poll Services to advertise" % len(aps))
+        ais = self.advertised_inbox_services.filter(enabled=True)
+        logger.debug("Found %s Inbox Services to advertise" % len(ais))
+        acms = self.advertised_collection_management_services.filter(enabled=True)
+        logger.debug("Found %s Collection Management Services to advertise" % len(acms))
+
         # Chain together all the enabled services that this discovery service advertises
-        advertised_services = list(chain(self.advertised_discovery_services.filter(enabled=True),
-                                         self.advertised_poll_services.filter(enabled=True),
-                                         self.advertised_inbox_services.filter(enabled=True),
-                                         self.advertised_collection_management_services.filter(enabled=True)))
+        advertised_services = list(chain(ads, aps, ais, acms))
+
+        logger.debug("Found %s total TAXII Services to advertise" % len(advertised_services))
+        logger.debug("Leaving DiscoveryService.get_advertised_services")
         return advertised_services
 
     def to_discovery_response_10(self, in_response_to):
@@ -1084,12 +1124,17 @@ class DiscoveryService(_TaxiiService):
         Returns:
             A tm11.DiscoveryResponse based on this model.
         """
+        logger = SiteConfiguration.get_logger(__name__)
+        logger.debug("Entering DiscoveryService.to_discovery_response_11")
         advertised_services = self.get_advertised_services()
         discovery_response = tm11.DiscoveryResponse(generate_message_id(), in_response_to)
         for service in advertised_services:
             service_instances = service.to_service_instances_11()
+            logger.debug("Got %s service_instances from %s" % (len(service_instances), service.name))
             discovery_response.service_instances.extend(service_instances)
-
+        logger.debug('DiscoveryResponse.service_instances length: %s' % len(discovery_response.service_instances))
+        # logger.debug(discovery_response.to_xml(pretty_print=True))
+        logger.debug("Leaving DiscoveryService.to_discovery_response_11")
         # Return the Discovery Response
         return discovery_response
 
@@ -1306,7 +1351,7 @@ class InboxService(_TaxiiService):
         return service_instances
 
     def to_service_instances_11(self):
-        service_instances = super(InboxService, self).to_service_instances_10()
+        service_instances = super(InboxService, self).to_service_instances_11()
         if self.accept_all_content:
             return service_instances
 
@@ -1678,6 +1723,39 @@ class ResultSetPart(models.Model):
     class Meta:
         verbose_name = "Result Set Part"
         unique_together = ('result_set', 'part_number',)
+
+
+class SiteConfiguration(SingletonModel):
+    url_base = models.CharField(max_length=MAX_NAME_LENGTH, default='localhost:8080')
+    log_level = models.IntegerField(max_length=2, choices=LOGGING_CHOICES, default=logging.WARN)
+    log_format = models.CharField(max_length=MAX_NAME_LENGTH,
+                                  default='%(levelname)s %(asctime)s %(module)s %(process)d %(message)s')
+    log_file = models.CharField(max_length=MAX_NAME_LENGTH, default='taxii_services.log')
+
+    @staticmethod
+    def get_url_base():
+        return SiteConfiguration.get_solo().url_base
+
+    @staticmethod
+    def get_logger(name):
+        """
+        Creates a new logger with the given name that is configured
+        per the config params in models.SiteConfiguration
+
+        THIS FUNCTION SHOULD BE USED TO GET THE LOGGER FOR ALL LOGGING IN DJANGO-TAXI-SERVICES
+
+        :param name: The name of the logger
+        :return:
+        """
+        config = SiteConfiguration.get_solo()
+        logger = logging.getLogger(name)
+        logging.basicConfig(
+            filename=config.log_file,
+            #filemode=config.log_filemode,  # Not currently supported
+            format=config.log_format,
+            level=config.log_level)
+
+        return logger
 
 
 class Subscription(models.Model):
