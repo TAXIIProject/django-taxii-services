@@ -38,6 +38,9 @@ class BaseMessageHandler(object):
     #: e.g., [tm11.InboxMessage]
     supported_request_messages = None
 
+    #: Identify the version of the message handler. This is a string.
+    version = None
+
     @classmethod
     def get_supported_request_messages(cls):
         """
