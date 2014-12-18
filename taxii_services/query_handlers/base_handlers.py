@@ -191,6 +191,13 @@ class BaseQueryHandler(object):
             raise NotImplementedError("The subclass did not specify a value for supported_cms")
 
     @classmethod
+    def is_scope_supported(cls, scope):
+        """
+        TODO: This is kinda hacky and should have a more complete solution
+        """
+        return cls.is_target_supported(scope)
+
+    @classmethod
     def is_target_supported(cls, target):
         raise NotImplementedError()
 
@@ -289,14 +296,14 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         """
 
         try:
-            cls.target_to_xpath_builders(None, target)
+            cls.target_to_xpath_builders(target)
         except ValueError as e:
             return SupportInfo(False, traceback.format_exc(e))
 
         return SupportInfo(True, None)
 
     @classmethod
-    def evaluate_criteria(cls, prp, content_etree, criteria):
+    def evaluate_criteria(cls, content_etree, criteria):
         """
         Evaluates the criteria in a query. Note that criteria can have
         child criteria (which will cause recursion) and child criterion.
@@ -312,7 +319,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         """
 
         for child_criteria in criteria.criteria:
-            value = cls.evaluate_criteria(prp, content_etree, child_criteria)
+            value = cls.evaluate_criteria(content_etree, child_criteria)
             if value is True and criteria.operator == tdq.OP_OR:
                 return True
             elif value is False and criteria.operator == tdq.OP_AND:
@@ -321,7 +328,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
                 pass
 
         for criterion in criteria.criterion:
-            value = cls.evaluate_criterion(prp, content_etree, criterion)
+            value = cls.evaluate_criterion(content_etree, criterion)
             # TODO: Is there a way to keep this DRY?
             if value is True and criteria.operator == tdq.OP_OR:
                 return True
@@ -333,7 +340,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         return criteria.operator == tdq.OP_AND
 
     @classmethod
-    def evaluate_criterion(cls, prp, content_etree, criterion):
+    def evaluate_criterion(cls, content_etree, criterion):
         """
         Evaluates the criterion in a query by turning the Criterion into an XPath and
         evaluating it against the content_etree
@@ -347,7 +354,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
             matches the criterion
         """
 
-        xpath, nsmap = cls.get_xpath(prp, criterion)
+        xpath, nsmap = cls.get_xpath(criterion)
         # print xpath
         matches = content_etree.xpath(xpath, namespaces=nsmap)
         # XPath results can be a boolean (True, False) or
@@ -364,26 +371,24 @@ class BaseXmlQueryHandler(BaseQueryHandler):
 
 
     @classmethod
-    def get_xpath(cls, prp, criterion):
+    def get_xpath(cls, criterion):
         """
         Given a tdq.Criterion, return an XPath that is equivalen
 
-        :param prp: PollRequestProperties
         :param criterion: tdq.Criterion
         :return: The full XPath to evaluate that maps to the tdq.Criterion
         """
-        xpath_builders, nsmap = cls.target_to_xpath_builders(prp, criterion.target)
+        xpath_builders, nsmap = cls.target_to_xpath_builders( criterion.target)
         xpaths = [xp.build(criterion.test.relationship, criterion.test.parameters) for xp in xpath_builders]
         xpath = " or ".join(xpaths)
         return xpath, nsmap
 
 
     @classmethod
-    def target_to_xpath_builders(cls, prp, target):
+    def target_to_xpath_builders(cls, target):
         """
         Turns a Targeting Expression into an XPath stub.
 
-        :param prp: PollRequestProperties object
         :param target: A string Targeting Expression
         :return: A list of 1-2 XPathBuilder objects, nsmap (dict)
         """
@@ -394,23 +399,22 @@ class BaseXmlQueryHandler(BaseQueryHandler):
 
         # Test for Naked/Trailing (N/T) Wildcard
         if target.endswith('*'):
-            xpath_builders, nsmap = cls.get_nt_wildcard_xpath_builders(prp, target_tokens)
+            xpath_builders, nsmap = cls.get_nt_wildcard_xpath_builders(target_tokens)
         # Test for Leading/Middle (L/M) Wildcard
         elif '*' in target:
-            xpath_builders, nsmap = cls.get_lm_wildcard_xpath_builders(prp, target_tokens)
+            xpath_builders, nsmap = cls.get_lm_wildcard_xpath_builders(target_tokens)
         else:  # Assume no wildcards
-            xpath_builders, nsmap = cls.get_no_wildcard_xpath_builders(prp, target_tokens)
+            xpath_builders, nsmap = cls.get_no_wildcard_xpath_builders(target_tokens)
 
         return xpath_builders, nsmap
 
     @classmethod
-    def get_nt_wildcard_xpath_builders(cls, prp, target_tokens):
+    def get_nt_wildcard_xpath_builders(cls, target_tokens):
         """
         For the Naked/Trailing Wildcard class of Targeting Expressions, which are all Targeting Expressions
         that have a wildcard that is "Naked" (e.g., all by itself) or Trailing (e.g., at the end of the Targeting
         Expression), create an XPathBuilder object.
 
-        :param prp: PollRequestProperties
         :param target_tokens: A tokenized list of Targeting Expressions
 
         :return: A list of XPathBuilder objects
@@ -529,7 +533,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         return None  # Nothing has been found
 
     @classmethod
-    def get_lm_wildcard_xpath_builders(cls, prp, target_tokens):
+    def get_lm_wildcard_xpath_builders(cls, target_tokens):
         xpath_parts = ['']
         context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
         nsmap = {}
@@ -574,7 +578,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         return xpath_builders, nsmap
 
     @classmethod
-    def get_no_wildcard_xpath_builders(cls, prp, target_tokens):
+    def get_no_wildcard_xpath_builders(cls, target_tokens):
         xpath_parts = ['']
         context = cls.mapping_dict['root_context']  # Start at the root of the mapping_dict
         nsmap = {}
@@ -613,7 +617,7 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         result_list = []
         for content_block in content_blocks:
             etree_content = parse(content_block.content)
-            if cls.evaluate_criteria(prp, etree_content, prp.query.criteria):
+            if cls.evaluate_criteria(etree_content, prp.query.criteria):
                 result_list.append(content_block)
 
         return result_list
