@@ -85,12 +85,13 @@ class QueryScopeInline(admin.TabularInline):
 
 
 class SupportedQueryAdmin(admin.ModelAdmin):
+    exclude = ['preferred_scope', 'allowed_scope']
     inlines = [QueryScopeInline]
 
 
 class QueryHandlerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'module_name', 'class_name',
-                    'version']
+    list_display = ['name', 'description', 'supported_targeting_expressions', 'supported_capability_modules',
+                    'module_name', 'class_name', 'version']
 
 
 class MessageHandlerAdmin(admin.ModelAdmin):
