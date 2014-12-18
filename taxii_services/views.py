@@ -105,7 +105,8 @@ def service_router(request, path, do_validate=True):
     try:
         response_message = handler_class.handle_message(service, taxii_message, request)
     except StatusMessageException as sme:
-        # TODO: Should this get logged?
+        logger.debug("StatusMessageException raised by message handler: ")
+        logger.debug(traceback.format_exc())
         raise  # The handler_class has intentionally raised this
     except Exception as e:  # Something else happened
         msg = "There was a failure while executing the message handler"

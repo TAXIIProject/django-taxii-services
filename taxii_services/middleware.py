@@ -31,7 +31,6 @@ class StatusMessageExceptionMiddleware(object):
 
         if not isinstance(exception, StatusMessageException):
             return None  # This class only handles StatusMessageExceptions
-        logger.debug("Entering StatusMessageExceptionMiddleware.process_exception")
         version = None
 
         a = request.META.get('HTTP_ACCEPT', None)
@@ -66,5 +65,6 @@ class StatusMessageExceptionMiddleware(object):
             version = VID_TAXII_SERVICES_11
 
         response_headers = handlers.get_headers(version, request.is_secure())
-        logger.debug("Leaving StatusMessageExceptionMiddleware.process_exception")
+        logger.debug("StatusMessageException headers: %s" % response_headers)
+        logger.debug("StatusMessageException Properties: %s" % sm.to_text())
         return handlers.HttpResponseTaxii(sm.to_xml(pretty_print=True), response_headers)

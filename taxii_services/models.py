@@ -262,15 +262,20 @@ class _Handler(models.Model):
 class _Tag(models.Model):
     """
     Not to be used by users directly. Defines common tags used for certain other models.
+
+    A Tag is a display name and value pair that can be associated with a model. Concretely, the value might be
+    a Targeting Expression Vocabulary (e.g., urn:stix.mitre.org:xml:1.1.1) and the Display Name could be something
+    like "The STIX XML v1.1.1 Targeting Expression Vocabulary".
     """
-    tag = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
-    value = models.CharField(max_length=MAX_NAME_LENGTH)
+    display_name = models.CharField(max_length=MAX_NAME_LENGTH)
+    value = models.CharField(max_length=MAX_NAME_LENGTH, unique=True)
+
+    def clean(self):
+        if self.display_name is None or self.display_name == '':
+            self.display_name = self.value
 
     def __unicode__(self):
-        s = self.tag
-        if self.value is not None:
-            s += " (%s)" % self.value
-        return s
+        return "%s (%s)" % (self.display_name, self.value)
 
 
 class _TaxiiService(models.Model):
@@ -1035,7 +1040,7 @@ class QueryScope(models.Model):
     description = models.TextField(blank=True)
     supported_query = models.ForeignKey('SupportedQuery')
     scope = models.CharField(max_length=MAX_NAME_LENGTH)
-    scope_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=SCOPE_CHOICES)
+    scope_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=SCOPE_CHOICES, default=PREFERRED_SCOPE)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1045,15 +1050,14 @@ class QueryScope(models.Model):
         try:
             validation.do_check(self.scope, 'scope', regex_tuple=tdq.targeting_expression_regex)
         except:
-            raise ValidationError('Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) separated by a /. No leading slash.')
+            raise ValidationError('Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) '
+                                  'separated by a /. No leading slash.')
 
         handler_class = self.supported_query.query_handler.get_handler_class()
 
-        # TODO: Do something about this. Make a class?
-        supported, error = handler_class.is_scope_supported(self.scope)
-        if not supported:
-            raise ValidationError('This query scope is not supported by the handler: %s' %
-                                  str(error))
+        support_info = handler_class.is_scope_supported(self.scope)
+        if not support_info.is_supported:
+            raise ValidationError('This query scope is not supported by the handler: %s' % support_info.message)
 
     def __unicode__(self):
         return u'%s (%s)' % (self.name, self.scope)
@@ -1501,6 +1505,14 @@ class PollService(_TaxiiService):
         Raises:
             A StatusMessageException if a QueryHandler was not found
         """
+        logger = SiteConfiguration.get_logger(__name__)
+        logger.debug("Entering PollService.get_supported_query")
+
+        num_supp_queries = len(self.supported_queries.all())
+        if num_supp_queries == 0:
+            logger.debug("This Poll Service does not have any supported_queries.")
+            raise StatusMessageException(in_response_to,
+                                         ST_UNSUPPORTED_QUERY)
 
         # 1. filter down by Targeting Expression ID
         tev_kwargs = {'query_handler__targeting_expression_ids__value': query.targeting_expression_id}
@@ -1511,7 +1523,7 @@ class PollService(_TaxiiService):
             for sq in self.supported_queries.all():
                 for tev in sq.query_handler.targeting_expression_ids.all():
                     exprs.append(tev.value)
-
+            logger.debug("No matches for TEV of %s" % tev_kwargs)
             raise StatusMessageException(in_response_to,
                                          ST_UNSUPPORTED_TARGETING_EXPRESSION_ID,
                                          status_detail={'TARGETING_EXPRESSION_ID': exprs})
@@ -1588,7 +1600,7 @@ class QueryHandler(_Handler):
     # TODO: Update this list
     handler_functions = ['get_supported_cms',
                          'get_supported_tevs',
-                         #'is_scope_supported',
+                         'is_scope_supported',
                          'is_target_supported',
                          'filter_content',
                          'update_db_kwargs']
@@ -1598,6 +1610,12 @@ class QueryHandler(_Handler):
 
     def clean(self):
         handler_class = super(QueryHandler, self).clean()
+
+    def supported_targeting_expressions(self):
+        return "\n".join([str(tev) for tev in self.targeting_expression_ids.all()])
+
+    def supported_capability_modules(self):
+        return "\n".join([str(cm) for cm in self.capability_modules.all()])
 
     def is_tev_supported(self, tev):
         """
@@ -1641,11 +1659,11 @@ def update_query_handler(sender, **kwargs):
     instance = kwargs['instance']
     handler_class = instance.get_handler_class()
     for cm in handler_class.get_supported_cms():
-        cm_obj = CapabilityModule.objects.get(value=cm)
+        cm_obj, created = CapabilityModule.objects.get_or_create(value=cm, defaults={'display_name': cm})
         instance.capability_modules.add(cm_obj)
 
     for tev in handler_class.get_supported_tevs():
-        tev_obj = TargetingExpressionId.objects.get(value=tev)
+        tev_obj, created = TargetingExpressionId.objects.get_or_create(value=tev, defaults={'display_name': tev})
         instance.targeting_expression_ids.add(tev_obj)
 
 post_save.connect(update_query_handler, sender=QueryHandler)
