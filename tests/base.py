@@ -3,6 +3,7 @@
 
 from django.conf import settings
 from django.test import TestCase
+import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 
 from .constants import TAXII_11_HTTP_Headers
@@ -71,6 +72,22 @@ class DJTTestCase(TestCase):
             status (str): TAXII Status message
         """
         taxii_message = self._parse_taxii_response(response)
-        self.assertIsInstance(taxii_message, tm11.StatusMessage)
+        # TODO: check the correct TAXII version of response based on the
+        # request.
+        status_message_classes = (tm11.StatusMessage, tm10.StatusMessage)
+        self.assertIsInstance(taxii_message, status_message_classes)
         if status:
-            self.assertEqual(status, taxii_message.status_type)
+            self.assertEqual(status, taxii_message.status_type,
+                    taxii_message.message)
+
+    def assertDiscoveryResponse(self, response):
+        """Verify that the response contains a TAXII Discovery Response.
+
+        Args:
+            response (Django TestClient Response):
+        """
+        taxii_message = self._parse_taxii_response(response)
+        # TODO: check the correct TAXII version of response based on the
+        # request.
+        discovery_response = (tm11.DiscoveryResponse, tm10.DiscoveryResponse)
+        self.assertIsInstance(taxii_message, discovery_response)

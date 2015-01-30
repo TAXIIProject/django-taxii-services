@@ -1,6 +1,7 @@
 # Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from libtaxii import messages_10 as tm10
 from libtaxii import messages_11 as tm11
 
 from .base import DJTTestCase
@@ -61,63 +62,78 @@ class ProtocolTests(DJTTestCase):
     # The next few tests test headers presence/absence
     # and unsupported values
 
-    def test_missing_headers(self):
+    def test_missing_headers_taxii_11_https(self):
+        self._test_missing_headers(VID_TAXII_SERVICES_10, is_secure=True)
+
+    def test_missing_headers_taxii_11_http(self):
+        self._test_missing_headers(VID_TAXII_SERVICES_11, is_secure=False)
+
+    def test_missing_headers_taxii_10_https(self):
+        self._test_missing_headers(VID_TAXII_SERVICES_10, is_secure=True)
+
+    def test_missing_headers_taxii_10_http(self):
+        self._test_missing_headers(VID_TAXII_SERVICES_10, is_secure=False)
+
+    def _test_missing_headers(self, version, is_secure):
         """
-        For each set of TAXII Headers, test the following:
+        Test requests with:
         - One header missing
         - A bad value for each header
-        - Other permutations in the future?
         """
 
         # TODO: The responses could probably be checked better
         # TODO: This whole thing can probably be done better,
         # but it's probably sufficient for now
 
-        # Tuples of services version / is_secure
-        http = False
-        https = True
-        tuples = ((VID_TAXII_SERVICES_11, https),
-                  (VID_TAXII_SERVICES_11, http),
-                  (VID_TAXII_SERVICES_10, https),
-                  (VID_TAXII_SERVICES_10, http))
+        # Get a copy of the expected headers the version/is_secure combination.
+        clean_headers = get_headers(version, is_secure)
 
-        # Create a list of headers for mangling header values
-        tmp_headers = get_headers(tuples[0][0], tuples[0][1])
-        header_list = tmp_headers.keys()
+        # Build a DiscoveryRequest for the correct TAXII version.
+        if version == VID_TAXII_SERVICES_11:
+            mod = tm11
+        else:
+            mod = tm10
+        body = mod.DiscoveryRequest(mod.generate_message_id()).to_xml()
 
-        # Iterate over every TAXII Service version / is_secure value,
-        # over every header, and try that header with a bad value
-        # and not present
-        for tuple_ in tuples:
-            if tuple_[0] == VID_TAXII_SERVICES_11:
-                disc_req_xml = tm11.DiscoveryRequest(tm11.generate_message_id()).to_xml()
+        # Loop through each of the TAXII headers.
+        for header in clean_headers.keys():
+            # Make a copy of the header dict (since we're going to modify it)
+            headers = dict(clean_headers)
+
+            # Try the bad header value
+            headers[header] = 'THIS_IS_A_BAD_VALUE'
+            response = self.post(DISCOVERY_PATH, body, headers)
+
+            if header == 'HTTP_ACCEPT':
+                self.assertEqual(406, response.status_code, header)
             else:
-                disc_req_xml = tm10.DiscoveryRequest(tm10.generate_message_id()).to_xml()
-            for header in header_list:
-                expected_code = 200 if header != 'HTTP_ACCEPT' else 406
-                r_msg = MSG_STATUS_MESSAGE
-                request_headers = get_headers(tuple_[0], tuple_[1])
+                self.assertEqual(200, response.status_code, header)
 
-                # Try the bad header value
-                request_headers[header] = 'THIS_IS_A_BAD_VALUE'
+            if header == 'HTTP_X_TAXII_CONTENT_TYPE':
+                self.assertStatusMessage(response, ST_BAD_MESSAGE)
+            else:
+                self.assertStatusMessage(response, ST_FAILURE)
 
-                self.make_request(post_data=disc_req_xml,
-                                  path=DISCOVERY_PATH,
-                                  response_msg_type=r_msg,
-                                  header_dict=request_headers,
-                                  expected_code=expected_code)
+            # TODO: Django will automatically add CONTENT_TYPE to POST
+            # requests, so find a better way to test when this header is
+            # missing.
+            if header == 'CONTENT_TYPE':
+                continue
 
-                # Now try without the header
-                if header in ('HTTP_ACCEPT', 'HTTP_X_TAXII_ACCEPT'):  # These headers can be missing
-                    expected_code = 200
-                    r_msg = MSG_DISCOVERY_RESPONSE
-                del request_headers[header]
-                self.make_request(post_data=disc_req_xml,
-                                  path=DISCOVERY_PATH,
-                                  response_msg_type=r_msg,
-                                  header_dict=request_headers,
-                                  expected_code=expected_code)
-                # everything OK, now on to the next one!
+            # Now try without the header
+            del headers[header]
+            response = self.post(DISCOVERY_PATH, body, headers)
+
+            #TODO: When should these return something other than a 200?
+            self.assertEqual(200, response.status_code, header)
+
+            if header in ('HTTP_ACCEPT', 'HTTP_X_TAXII_ACCEPT'):
+                self.assertDiscoveryResponse(response)
+            elif header == 'HTTP_X_TAXII_CONTENT_TYPE':
+                self.assertStatusMessage(response, ST_BAD_MESSAGE)
+            else:
+                self.assertStatusMessage(response, ST_FAILURE)
+            # everything OK, now on to the next one!
 
     def test_mismatched_message_binding_id(self):
         """
