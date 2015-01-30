@@ -14,6 +14,8 @@ COLLECTION_PATH = '/collection-management/'
 # don't have their headers normalized by Django.
 # This means I can't reuse application code from elsewhere.
 
+# TOOD: Django will set the content type header automatically.
+
 TAXII_11_HTTPS_Headers = {'CONTENT_TYPE': 'application/xml',
                           'HTTP_X_TAXII_CONTENT_TYPE': VID_TAXII_XML_11,
                           'HTTP_X_TAXII_PROTOCOL': VID_TAXII_HTTPS_10,

@@ -24,33 +24,39 @@ class ProtocolTests(DJTTestCase):
         Sends an Inbox Message to an invalid URL.
         Should get back a 404.
         """
-        inbox_message = tm11.InboxMessage(tm11.generate_message_id())
-        self.make_request(post_data=inbox_message.to_xml(),
-                          path='/Services/PathThatShouldNotWork/',
-                          expected_code=404)
+        # TODO: Why do we actually need a payload to return a 404? Shouldn't an
+        # empty message to a non-existent URL also return a 404?
+        inbox_msg = tm11.InboxMessage(tm11.generate_message_id())
+        path = '/Services/PathThatShouldNotWork/'
+
+        response = self.post(path, inbox_msg.to_xml())
+        self.assertEqual(404, response.status_code)
+        # TODO: test the actual content of the 404
 
     def test_get_request(self):
         """
-        Tests sending a GET request to the server. Should result in a BAD MESSAGE
+        Sending a GET request to the server should result in a BAD_MESSAGE.
         """
-        # Lack of post_data makes it a GET request
-        self.make_request(path=DISCOVERY_PATH)
+        response = self.get(DISCOVERY_PATH)
+        self.assertStatusMessage(response, ST_BAD_MESSAGE)
 
     def test_malformed_xml(self):
         """
         Send an XML fragment to the server
         """
-        self.make_request(path=DISCOVERY_PATH,
-                          post_data='<XML_that_is_not_well_formed>',
-                          response_msg_type=MSG_STATUS_MESSAGE)
+        body = '<malformed_xml>'  # No closing tag.
+
+        response = self.post(DISCOVERY_PATH, body)
+        self.assertStatusMessage(response, ST_BAD_MESSAGE)
 
     def test_schema_invalid_xml(self):
         """
         Send schema-invalid XML
         """
-        self.make_request(path=DISCOVERY_PATH,
-                          post_data='<well_formed_schema_invalid_xml/>',
-                          response_msg_type=MSG_STATUS_MESSAGE)
+        body = '<valid_xml/>'  # well-formed, but schema-invalid.
+
+        response = self.post(DISCOVERY_PATH, body)
+        self.assertStatusMessage(response, ST_BAD_MESSAGE)
 
     # The next few tests test headers presence/absence
     # and unsupported values
