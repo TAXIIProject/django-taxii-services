@@ -150,11 +150,12 @@ class SubscriptionTests11(TestCase):
 
         msg2 = make_request('/collection-management/', sr.to_xml(), get_headers(VID_TAXII_SERVICES_11, False))
 
-        sr.delivery_parameters = tm11.DeliveryParameters(inbox_address='http://example.com',
-                                                         inbox_protocol=VID_TAXII_HTTP_10,
-                                                         delivery_message_binding=VID_TAXII_XML_11)
+        sr.subscription_parameters.content_bindings = [CB_STIX_XML_11,
+                CB_STIX_XML_10]
 
         msg3 = make_request('/collection-management/', sr.to_xml(), get_headers(VID_TAXII_SERVICES_11, False))
+
+        sr.action = ACT_STATUS
 
         msg = make_request('/collection-management/',
                            sr.to_xml(),

@@ -140,7 +140,7 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
             supported_contents = None
         else:
             accept_all_content = False
-            supported_contents = data_collection.get_binding_intersection_11(smr.subscription_parameters.content_bindings)
+            supported_contents = data_collection.get_binding_intersection_11(smr.subscription_parameters.content_bindings, '0')
 
         # TODO: Check for supported push methods (e.g., inbox protocol, delivery message binding)
         # TODO: Check the query format and see if it works

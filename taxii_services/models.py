@@ -1738,7 +1738,7 @@ class Subscription(models.Model):
         model
         """
         subscription_params = tm11.SubscriptionParameters(response_type=self.response_type,
-                                                          content_bindings=self.supported_content.all())
+                                                          content_bindings=[str(x) for x in self.supported_content.all()])
 
         if self.query:
             subscription_params.query = self.query.to_query_11()
