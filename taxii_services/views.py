@@ -10,7 +10,7 @@ import handlers
 import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
 from libtaxii.constants import *
-from libtaxii.validation import SchemaValidator
+from libtaxii.validation import TAXII10Validator, TAXII11Validator
 
 import collections
 from django.conf import settings
@@ -23,8 +23,8 @@ from importlib import import_module
 
 ParseTuple = collections.namedtuple('ParseTuple', ['validator', 'parser'])
 
-TAXII_10_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_10_SCHEMA), tm10.get_message_from_xml)
-TAXII_11_ParseTuple = ParseTuple(SchemaValidator(SchemaValidator.TAXII_11_SCHEMA), tm11.get_message_from_xml)
+TAXII_10_ParseTuple = ParseTuple(TAXII10Validator(), tm10.get_message_from_xml)
+TAXII_11_ParseTuple = ParseTuple(TAXII11Validator(), tm11.get_message_from_xml)
 
 xtct_map = {VID_TAXII_XML_10: TAXII_10_ParseTuple,
             VID_TAXII_XML_11: TAXII_11_ParseTuple}
