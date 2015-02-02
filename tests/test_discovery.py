@@ -1,42 +1,56 @@
-# Copyright (c) 2014, The MITRE Corporation. All rights reserved.
+# Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
 from django.test import TestCase
 from django.conf import settings
 
-from .helpers import *
+from libtaxii.constants import VID_TAXII_SERVICES_10, VID_TAXII_SERVICES_11
+from libtaxii.constants import ST_BAD_MESSAGE
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
 
-class DiscoveryTests11(TestCase):
+from .base import DJTTestCase
+from .constants import DISCOVERY_PATH
+from .helpers import add_discovery_service
+
+
+class DiscoveryTests11(DJTTestCase):
+
     def setUp(self):
-        settings.DEBUG = True
-        add_basics()
+        super(DiscoveryTests11, self).setUp()
         add_discovery_service()
 
-    def test_01(self):
-        """
-        Send a discovery request, look to get a discovery response back
-        """
+    def test_discovery_exchange(self):
+        """Send a discovery request, look to get a discovery response back."""
+        req = tm11.DiscoveryRequest(tm11.generate_message_id())
+        response = self.post(DISCOVERY_PATH, req.to_xml())
 
-        dr = tm11.DiscoveryRequest(generate_message_id())
-        make_request(DISCOVERY_PATH,
-                     dr.to_xml(),
-                     get_headers(VID_TAXII_SERVICES_11, False),
-                     MSG_DISCOVERY_RESPONSE)
+        self.assertDiscoveryResponse(response)
+
+    def test_discovery_message_get(self):
+        """Ensure you get a BAD_MESSAGE when issuing a GET request."""
+
+        response = self.get(DISCOVERY_PATH)
+        self.assertStatusMessage(response, ST_BAD_MESSAGE)
+
+    def test_discovery_message_post_empty(self):
+        """Ensure you get a BAD_MESSAGE when issuing an empty POST request."""
+
+        response = self.post(DISCOVERY_PATH, "")
+        self.assertStatusMessage(response, ST_BAD_MESSAGE)
 
 
-class DiscoveryTests10(TestCase):
+class DiscoveryTests10(DJTTestCase):
+
+    taxii_version = VID_TAXII_SERVICES_10
+
     def setUp(self):
-        settings.DEBUG = True
-        add_basics()
+        super(DiscoveryTests10, self).setUp()
         add_discovery_service()
 
-    def test_01(self):
-        """
-        Send a discovery request, look to get a discovery response back
-        """
+    def test_discovery_exchange(self):
+        """Send a discovery request, look to get a discovery response back."""
+        req = tm10.DiscoveryRequest(tm10.generate_message_id())
+        response = self.post(DISCOVERY_PATH, req.to_xml())
 
-        dr = tm10.DiscoveryRequest(generate_message_id())
-        make_request(DISCOVERY_PATH,
-                     dr.to_xml(),
-                     get_headers(VID_TAXII_SERVICES_10, False),
-                     MSG_DISCOVERY_RESPONSE)
+        self.assertDiscoveryResponse(response)

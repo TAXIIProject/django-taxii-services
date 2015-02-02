@@ -3,58 +3,97 @@
 
 from django.conf import settings
 from django.test import TestCase
+
+from libtaxii.constants import VID_TAXII_SERVICES_10, VID_TAXII_SERVICES_11
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 
-from .constants import TAXII_11_HTTP_Headers
+from .constants import (TAXII_10_HTTP_Headers, TAXII_10_HTTPS_Headers,
+                        TAXII_11_HTTP_Headers, TAXII_11_HTTPS_Headers)
 from .helpers import add_basics, make_request, get_message_from_client_response
 
 
 class DJTTestCase(TestCase):
     """A base class for django-taxii-services test cases."""
 
+    # By default, use TAXII 1.1. Test case subclasses can override this.
+    taxii_version = VID_TAXII_SERVICES_11
+
     def setUp(self):
         settings.DEBUG = True
         add_basics()
 
+    # TODO: Remove this once everything uses get() and post()
     def make_request(self, **kwargs):
         make_request(**kwargs)
 
-    def get(self, path, headers=None):
+    def _get_headers(self, taxii_version, secure):
+        """Get default headers for a TAXII version/protocol combination"""
+
+        # NOTE: We use the TAXII Services version as a proxy for both the
+        # services version and the message binding version.
+
+        # TODO: Should we add tests for strange combinations of
+        # Services/Messages versions?
+
+        if not taxii_version:
+            taxii_version = self.taxii_version
+
+        # Creates a copy of the dictionary to return.
+        if taxii_version == VID_TAXII_SERVICES_11:
+            if secure:
+                return dict(TAXII_11_HTTPS_Headers)
+            else:
+                return dict(TAXII_11_HTTP_Headers)
+
+        elif taxii_version == VID_TAXII_SERVICES_10:
+            if secure:
+                return dict(TAXII_10_HTTPS_Headers)
+            else:
+                return dict(TAXII_10_HTTP_Headers)
+        else:
+            msg = "Unsupported TAXII Services Version: %s" % taxii_version
+            raise ValueError(msg)
+
+    def get(self, path, headers=None, taxii_version=None, secure=False):
         """Perform a GET request.
 
-        If headers are not provided, the default TAXII 1.1 headers will be
-        used.
+        If `headers` are not provided, default headers will be chosen based on
+        the `taxii_version` and `secure` arguments.
 
         Args:
             path (str): the URL to GET
             headers (dict): HTTP headers
+            taxii_version (str): VID_TAXII_XML_10 or VID_TAXII_XML_11
+            secure (bool): Use HTTPS headers if True, otherwise use HTTP
+                headers.
 
         Returns:
             Django test client Response object
         """
         if headers is None:
-            # create copy of dictionary
-            headers = dict(TAXII_11_HTTP_Headers)
+            headers = self._get_headers(taxii_version, secure)
         return self.client.get(path, **headers)
 
-    def post(self, path, data, headers=None):
+    def post(self, path, data, headers=None, taxii_version=None, secure=False):
         """Perform a POST request.
 
-        If headers are not provided, the default TAXII 1.1 headers will be
-        used.
+        If `headers` are not provided, default headers will be chosen based on
+        the `taxii_version` and `secure` arguments.
 
         Args:
             path (str): the URL to GET
-            body (str): the payload of the HTTP request
+            data (str): the payload of the HTTP request
             headers (dict): HTTP headers
+            taxii_version (str): VID_TAXII_XML_10 or VID_TAXII_XML_11
+            secure (bool): Use HTTPS headers if True, otherwise use HTTP
+                headers.
 
         Returns:
             Django test client Response object
         """
         if headers is None:
-            # create copy of dictionary
-            headers = dict(TAXII_11_HTTP_Headers)
+            headers = self._get_headers(taxii_version, secure)
         return self.client.post(path, data, content_type='application/xml',
                                 **headers)
 
@@ -77,8 +116,7 @@ class DJTTestCase(TestCase):
         status_message_classes = (tm11.StatusMessage, tm10.StatusMessage)
         self.assertIsInstance(taxii_message, status_message_classes)
         if status:
-            self.assertEqual(status, taxii_message.status_type,
-                    taxii_message.message)
+            self.assertEqual(status, taxii_message.status_type)
 
     def assertDiscoveryResponse(self, response):
         """Verify that the response contains a TAXII Discovery Response.
