@@ -158,8 +158,8 @@ class SubscriptionRequest11Handler(BaseMessageHandler):
         if supported_contents is not None:
             subscription.supported_content = supported_contents
             subscription.save()
-        print 'created subscription! id=', subscription.subscription_id
-        print 'total num of subs: ', len(models.Subscription.objects.all())
+        #print 'created subscription! id=', subscription.subscription_id
+        #print 'total num of subs: ', len(models.Subscription.objects.all())
         return subscription.to_subscription_instance_11()
 
     @classmethod

@@ -47,7 +47,7 @@ class CollectionInformationTests11(TestCase):
         if len(msg.collection_informations[0].receiving_inbox_services) > 0:
             raise ValueError("Expected 0 Receiving Inbox Services, got %s" %
                              len(msg.collection_informations[0].receiving_inbox_services))
-        print msg.to_xml(pretty_print=True)
+        #print msg.to_xml(pretty_print=True)
 
 
 class FeedInformationTests10(TestCase):
