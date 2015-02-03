@@ -1,0 +1,21 @@
+# Copyright (C) 2015 - The MITRE Corporation
+# For license information, see the LICENSE.txt file
+
+from taxii_services.message_handlers.base_handlers import BaseMessageHandler
+
+#from taxii_services.message_handlers.collection_information_request_handlers import CollectionInformationRequest10Handler
+from taxii_services.message_handlers.collection_information_request_handlers import CollectionInformationRequest11Handler, CollectionInformationRequestHandler
+
+from taxii_services.message_handlers.discovery_request_handlers import DiscoveryRequest10Handler, DiscoveryRequest11Handler, DiscoveryRequestHandler
+
+from taxii_services.message_handlers.inbox_message_handlers import InboxMessage10Handler, InboxMessage11Handler, InboxMessageHandler
+
+from taxii_services.message_handlers.poll_fulifllment_request_handlers import PollFulfillmentRequest11Handler
+
+from taxii_services.message_handlers.poll_request_handlers import PollRequest10Handler, PollRequest11Handler, PollRequestHandler
+
+from taxii_services.message_handlers.subscription_request_handlers import SubscriptionRequest10Handler, SubscriptionRequest11Handler, SubscriptionRequestHandler
+
+from taxii_services.query_handlers.base_handlers import BaseQueryHandler, BaseXmlQueryHandler
+
+from taxii_services.query_handlers.stix_xml_111_handler import StixXml111QueryHandler

@@ -3,46 +3,6 @@
 
 __version__ = "0.3"
 
-import message_handlers.base_handlers as bmh
-BaseMessageHandler = bmh.BaseMessageHandler
-
-import query_handlers.base_handlers as bqh
-BaseQueryHandler = bqh.BaseQueryHandler
-BaseXmlQueryHandler = bqh.BaseXmlQueryHandler
-
-import message_handlers.collection_information_request_handlers as cirh
-import message_handlers.discovery_request_handlers as drh
-import message_handlers.inbox_message_handlers as imh
-import message_handlers.poll_fulifllment_request_handlers as pfrh
-import message_handlers.poll_request_handlers as prh
-import message_handlers.subscription_request_handlers as srh
-
-# CollectionInformationRequest10Handler = cirh.CollectionInformationRequest10Handler
-CollectionInformationRequest11Handler = cirh.CollectionInformationRequest11Handler
-CollectionInformationRequestHandler = cirh.CollectionInformationRequestHandler
-
-DiscoveryRequest10Handler = drh.DiscoveryRequest10Handler
-DiscoveryRequest11Handler = drh.DiscoveryRequest11Handler
-DiscoveryRequestHandler = drh.DiscoveryRequestHandler
-
-InboxMessage10Handler = imh.InboxMessage10Handler
-InboxMessage11Handler = imh.InboxMessage11Handler
-InboxMessageHandler = imh.InboxMessageHandler
-
-PollFulfillmentRequest11Handler = pfrh.PollFulfillmentRequest11Handler
-
-PollRequest10Handler = prh.PollRequest10Handler
-PollRequest11Handler = prh.PollRequest11Handler
-PollRequestHandler = prh.PollRequestHandler
-
-SubscriptionRequest10Handler = srh.SubscriptionRequest10Handler
-SubscriptionRequest11Handler = srh.SubscriptionRequest11Handler
-SubscriptionRequestHandler = srh.SubscriptionRequestHandler
-
-import query_handlers.stix_xml_111_handler as sx111h
-StixXml111QueryHandler = sx111h.StixXml111QueryHandler
-
-
 def register_admins(admin_list=None):
     """
     Registers all admins or the subset specified by admin_list.
@@ -58,6 +18,35 @@ def register_admins(admin_list=None):
 # handler is not unique
 
 
+DEFAULT_MESSAGE_HANDLERS = [
+    # TODO: Implement this.
+    # 'taxii_services.handlers.default.CollectionInformationRequest10Handler',
+    'taxii_services.handlers.default.CollectionInformationRequest11Handler',
+    'taxii_services.handlers.default.CollectionInformationRequestHandler',
+    'taxii_services.handlers.default.DiscoveryRequest10Handler',
+    'taxii_services.handlers.default.DiscoveryRequest11Handler',
+    'taxii_services.handlers.default.DiscoveryRequestHandler',
+    'taxii_services.handlers.default.InboxMessage10Handler',
+    'taxii_services.handlers.default.InboxMessage11Handler',
+    'taxii_services.handlers.default.InboxMessageHandler',
+    'taxii_services.handlers.default.PollFulfillmentRequest11Handler',
+    'taxii_services.handlers.default.PollRequest10Handler',
+    'taxii_services.handlers.default.PollRequest11Handler',
+    'taxii_services.handlers.default.PollRequestHandler',
+    'taxii_services.handlers.default.SubscriptionRequest10Handler',
+    'taxii_services.handlers.default.SubscriptionRequest11Handler',
+    'taxii_services.handlers.default.SubscriptionRequestHandler',
+]
+
+DEFAULT_QUERY_HANDLERS = [
+    'taxii_services.handlers.default.StixXml111QueryHandler',
+    # TODO: Implement these.
+    # 'taxii_services.handlers.default.StixXml11QueryHandler',
+    # 'taxii_services.handlers.default.StixXml101QueryHandler',
+    # 'taxii_services.handlers.default.StixXml10QueryHandler'
+]
+
+
 def register_message_handlers(handler_list=None):
     """
     Args:
@@ -66,22 +55,7 @@ def register_message_handlers(handler_list=None):
     """
 
     if handler_list is None:
-        handler_list = [# 'taxii_services.CollectionInformationRequest10Handler',
-                        'taxii_services.CollectionInformationRequest11Handler',
-                        'taxii_services.CollectionInformationRequestHandler',
-                        'taxii_services.DiscoveryRequest10Handler',
-                        'taxii_services.DiscoveryRequest11Handler',
-                        'taxii_services.DiscoveryRequestHandler',
-                        'taxii_services.InboxMessage10Handler',
-                        'taxii_services.InboxMessage11Handler',
-                        'taxii_services.InboxMessageHandler',
-                        'taxii_services.PollFulfillmentRequest11Handler',
-                        'taxii_services.PollRequest10Handler',
-                        'taxii_services.PollRequest11Handler',
-                        'taxii_services.PollRequestHandler',
-                        'taxii_services.SubscriptionRequest10Handler',
-                        'taxii_services.SubscriptionRequest11Handler',
-                        'taxii_services.SubscriptionRequestHandler']
+        handler_list = DEFAULT_MESSAGE_HANDLERS
 
     import management
 
@@ -97,11 +71,7 @@ def register_query_handlers(handler_list=None):
     """
 
     if handler_list is None:
-        handler_list = ['taxii_services.StixXml111QueryHandler',
-                        # 'taxii_services.StixXml11QueryHandler',
-                        # 'taxii_services.StixXml101QueryHandler',
-                        # 'taxii_services.StixXml10QueryHandler'
-                        ]
+        handler_list = DEFAULT_QUERY_HANDLERS
 
     import management
 

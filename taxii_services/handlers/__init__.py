@@ -1,8 +1,8 @@
-# Copyright (c) 2014, The MITRE Corporation. All rights reserved.
+# Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-import models
-from .exceptions import StatusMessageException
+from taxii_services import models
+from taxii_services.exceptions import StatusMessageException
 
 import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
