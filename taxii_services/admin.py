@@ -81,16 +81,16 @@ class ResultSetAdmin(admin.ModelAdmin):
 
 
 class QueryScopeInline(admin.TabularInline):
+    extra = 0
     model = models.QueryScope
 
 
 class SupportedQueryAdmin(admin.ModelAdmin):
-    exclude = ['preferred_scope', 'allowed_scope']
     inlines = [QueryScopeInline]
 
 
 class QueryHandlerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'supported_targeting_expressions', 'supported_capability_modules',
+    list_display = ['name', 'description', 'targeting_expression_id', 'supported_capability_modules',
                     'module_name', 'class_name', 'version']
 
 

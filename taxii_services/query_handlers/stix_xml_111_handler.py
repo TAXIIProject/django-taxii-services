@@ -8,7 +8,7 @@ class StixXml111QueryHandler(BaseXmlQueryHandler):
     """
     Tmp description
     """
-    supported_tevs = [CB_STIX_XML_111]
+    supported_tev = CB_STIX_XML_111
     supported_cms = [CM_CORE]
     mapping_dict = \
 {

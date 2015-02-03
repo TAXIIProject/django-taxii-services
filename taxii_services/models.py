@@ -116,9 +116,9 @@ SUBS_BOTH = ('BOTH', 'Both')
 DELIVERY_CHOICES = (SUBS_POLL, SUBS_PUSH, SUBS_BOTH)
 
 #: Preferred Scope
-PREFERRED_SCOPE = ('PREFERRED', 'Preferred')
+PREFERRED_SCOPE = (SD_PREFERRED_SCOPE, 'Preferred')
 #: Allowed Scope
-ALLOWED_SCOPE = ('ALLOWED', 'Allowed')
+ALLOWED_SCOPE = (SD_ALLOWED_SCOPE, 'Allowed')
 #: Tuple of scope choices
 SCOPE_CHOICES = (PREFERRED_SCOPE, ALLOWED_SCOPE)
 
@@ -1046,7 +1046,6 @@ class QueryScope(models.Model):
     date_updated = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        super(QueryScope, self).clean()
         try:
             validation.do_check(self.scope, 'scope', regex_tuple=tdq.targeting_expression_regex)
         except:
@@ -1094,11 +1093,11 @@ class DiscoveryService(_TaxiiService):
         logger = SiteConfiguration.get_logger(__name__)
         logger.debug("Entering DiscoveryService.get_advertised_services")
         ads = self.advertised_discovery_services.filter(enabled=True)
-        logger.debug("Found %s Discovery Services to advertise" % len(ads))
+        logger.info("Found %s Discovery Services to advertise" % len(ads))
         aps = self.advertised_poll_services.filter(enabled=True)
-        logger.debug("Found %s Poll Services to advertise" % len(aps))
+        logger.info("Found %s Poll Services to advertise" % len(aps))
         ais = self.advertised_inbox_services.filter(enabled=True)
-        logger.debug("Found %s Inbox Services to advertise" % len(ais))
+        logger.info("Found %s Inbox Services to advertise" % len(ais))
         acms = self.advertised_collection_management_services.filter(enabled=True)
         logger.debug("Found %s Collection Management Services to advertise" % len(acms))
 
@@ -1599,20 +1598,20 @@ class QueryHandler(_Handler):
 
     # TODO: Update this list
     handler_functions = ['get_supported_cms',
-                         'get_supported_tevs',
+                         'get_supported_tev',
                          'is_scope_supported',
                          'is_target_supported',
                          'filter_content',
                          'update_db_kwargs']
 
-    targeting_expression_ids = models.ManyToManyField('TargetingExpressionId', editable=False, blank=True, null=True)
+    targeting_expression_id = models.ForeignKey('TargetingExpressionId', editable=False, blank=True, null=True)
     capability_modules = models.ManyToManyField('CapabilityModule', editable=False, blank=True, null=True)
 
     def clean(self):
         handler_class = super(QueryHandler, self).clean()
-
-    def supported_targeting_expressions(self):
-        return "\n".join([str(tev) for tev in self.targeting_expression_ids.all()])
+        tev = handler_class.get_supported_tev()
+        tev_obj, created = TargetingExpressionId.objects.get_or_create(value=tev, defaults={'display_name': tev})
+        self.targeting_expression_id = tev_obj
 
     def supported_capability_modules(self):
         return "\n".join([str(cm) for cm in self.capability_modules.all()])
@@ -1662,9 +1661,9 @@ def update_query_handler(sender, **kwargs):
         cm_obj, created = CapabilityModule.objects.get_or_create(value=cm, defaults={'display_name': cm})
         instance.capability_modules.add(cm_obj)
 
-    for tev in handler_class.get_supported_tevs():
-        tev_obj, created = TargetingExpressionId.objects.get_or_create(value=tev, defaults={'display_name': tev})
-        instance.targeting_expression_ids.add(tev_obj)
+    #for tev in handler_class.get_supported_tevs():
+    #    tev_obj, created = TargetingExpressionId.objects.get_or_create(value=tev, defaults={'display_name': tev})
+    #    instance.targeting_expression_ids.add(tev_obj)
 
 post_save.connect(update_query_handler, sender=QueryHandler)
 
@@ -1863,8 +1862,8 @@ class SupportedQuery(models.Model):
 
     query_handler = models.ForeignKey('QueryHandler')
     use_handler_scope = models.BooleanField(default=True)
-    preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
-    allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
+    #preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
+    #allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1938,22 +1937,21 @@ class SupportedQuery(models.Model):
 
     def to_query_info_11(self):
         """
-        Returns a tdq.QueryInfo object
+        Returns a tdq.DefaultQueryInfo object
         based on this model
         """
-        preferred_scope = [ps.scope for ps in self.preferred_scope.all()]
-        allowed_scope = [as_.scope for as_ in self.allowed_scope.all()]
-        targeting_expression_id = self.query_handler.targeting_expression_id
+        preferred_scope = [qs.scope for qs in
+                           QueryScope.objects.filter(supported_query=self, scope_type=SD_PREFERRED_SCOPE)]
+        allowed_scope = [qs.scope for qs in
+                         QueryScope.objects.filter(supported_query=self, scope_type=SD_ALLOWED_SCOPE)]
+
+        targeting_expression_id = self.query_handler.targeting_expression_id.value
 
         tei = tdq.DefaultQueryInfo.TargetingExpressionInfo(targeting_expression_id=targeting_expression_id,
                                                            preferred_scope=preferred_scope,
                                                            allowed_scope=allowed_scope)
 
-        # TODO: I don't think commas are permitted, but they'd break this processing
-        # Probably fix that, maybe through DB field validation
-        # This is stored in the DB as a python list, so get rid of all the "extras"
-        map_ = dict((ord(char), None) for char in " []\'")
-        cm_list = self.query_handler.capability_modules.translate(map_).split(',')
+        cm_list = [cm.value for cm in self.query_handler.capability_modules.all()]
 
         dqi = tdq.DefaultQueryInfo(targeting_expression_infos=[tei],
                                    capability_modules=cm_list)

@@ -65,6 +65,6 @@ class StatusMessageExceptionMiddleware(object):
             version = VID_TAXII_SERVICES_11
 
         response_headers = handlers.get_headers(version, request.is_secure())
-        logger.debug("StatusMessageException headers: %s" % response_headers)
+        logger.info("StatusMessageException headers: %s" % response_headers)
         logger.debug("StatusMessageException Properties: %s" % sm.to_text())
         return handlers.HttpResponseTaxii(sm.to_xml(pretty_print=True), response_headers)

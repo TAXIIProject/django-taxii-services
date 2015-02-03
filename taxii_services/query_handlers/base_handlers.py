@@ -180,12 +180,12 @@ class BaseQueryHandler(object):
     m.register_query_handler(QueryHandlerChild, name='QueryHandlerChild')
     """
 
-    supported_tevs = None
+    supported_tev = None
     supported_cms = None
 
     def __init__(self):
-        if self.supported_tevs is None:
-            raise NotImplementedError("The subclass did not specify a value for supported_tevs")
+        if self.supported_tev is None:
+            raise NotImplementedError("The subclass did not specify a value for supported_tev")
 
         if self.supported_cms is None:
             raise NotImplementedError("The subclass did not specify a value for supported_cms")
@@ -206,8 +206,8 @@ class BaseQueryHandler(object):
         return cls.supported_cms
 
     @classmethod
-    def get_supported_tevs(cls):
-        return cls.supported_tevs
+    def get_supported_tev(cls):
+        return cls.supported_tev
 
     @classmethod
     def update_db_kwargs(cls, poll_request_properties, db_kwargs):
@@ -609,10 +609,10 @@ class BaseXmlQueryHandler(BaseQueryHandler):
         :param content_blocks: A list of models.ContentBlock objects to filter
         :return: A list of models.ContentBlock objects matching the query
         """
-        if prp.query.targeting_expression_id not in cls.get_supported_tevs():
+        if prp.query.targeting_expression_id not in cls.get_supported_tev():
             raise StatusMessageException(prp.message_id,
                                          ST_UNSUPPORTED_TARGETING_EXPRESSION_ID,
-                                         status_detail={SD_TARGETING_EXPRESSION_ID: cls.get_supported_tevs()})
+                                         status_detail={SD_TARGETING_EXPRESSION_ID: cls.get_supported_tev()})
 
         result_list = []
         for content_block in content_blocks:
