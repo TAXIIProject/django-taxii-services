@@ -15,7 +15,14 @@ def runtests():
     TestRunner = get_runner(settings)
     test_runner = TestRunner()
 
-    failures = test_runner.run_tests(['tests',])
+    # By default, run all of the tests
+    tests = ['tests']
+
+    # Allow running a subset of tests via the command line.
+    if len(sys.argv) > 1:
+        tests = sys.argv[1:]
+
+    failures = test_runner.run_tests(tests, verbosity=3)
     if failures:
         sys.exit(failures)
 
