@@ -6,6 +6,7 @@ Release Notes
 The structure of Message Handlers and Query Handlers were significantly reorganized:
 
 * Message Handlers used to be in base_taxii_handlers.py and taxii_handlers.py. They are now in the message_handlers module, which consists of the following files:
+
  * base_handlers.py - Contains the BaseMessageHandler class. All Message Handler classes inherit from this class
  * collection_information_request_handlers.py - Contains all Collection/Feed Information Request Handlers (TAXII 1.0 and 1.1)
  * discovery_request_handlers.py - Contains all Discovery Request Handlers (TAXII 1.0 and 1.1)
@@ -17,6 +18,7 @@ The structure of Message Handlers and Query Handlers were significantly reorgani
 Note that each Message Handler, or BaseMessageHandler, can be extended and customized for custom TAXII Message Handling
 
 * Query Handlers used to be in base_taxii_handlers.py and has been moved to the query_handlers module, which consists of the following files:
+
  * base_handlers.py - Contains the BaseQueryHandler and BaseXmlQueryHandler class. The BaseXmlQueryHandler class is a general TAXII Query to XPath mapping class
  * stix_xml_111_handler.py - Contains an incomplete STIX 1.1.1 Query Handler that is a subclass of BaseXmlQueryHandler.
 
