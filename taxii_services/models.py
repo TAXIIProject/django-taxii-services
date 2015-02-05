@@ -20,7 +20,7 @@ from itertools import chain
 import uuid
 import sys
 
-MAX_NAME_LENGTH = 256
+MAX_NAME_LENGTH = 255
 
 # A number of choice tuples are defined here. In all cases the choices are:
 # (database_value, display_value). Where possible, database_value is
