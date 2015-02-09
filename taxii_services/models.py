@@ -1724,11 +1724,11 @@ class Subscription(models.Model):
         Returns a tm10.SubscriptionInstance object
         based on this model
         """
-        push_params = None  # TODO: Implement this
+        delivery_params = None  # TODO: Implement this
         poll_instances = None  # TODO: Implement this
 
         si = tm10.SubscriptionInstance(subscription_id=str(self.subscription_id),
-                                       push_parameters=push_params,
+                                       delivery_parameters=delivery_params,
                                        poll_instances=poll_instances)
         return si
 

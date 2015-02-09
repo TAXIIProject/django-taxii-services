@@ -132,7 +132,7 @@ class HttpResponseTaxii(HttpResponse):
     to allow quick and easy specification of TAXII HTTP headers.in
     """
     def __init__(self, taxii_xml, taxii_headers, *args, **kwargs):
-        super(HttpResponse, self).__init__(*args, **kwargs)
+        super(HttpResponseTaxii, self).__init__(*args, **kwargs)
         self.content = taxii_xml
         for h in REQUIRED_RESPONSE_HEADERS:
             if h not in taxii_headers:

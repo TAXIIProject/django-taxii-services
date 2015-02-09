@@ -5,10 +5,12 @@ import libtaxii as t
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
+from libtaxii.common import generate_message_id
 from libtaxii.constants import *
 from functools import wraps
 
 from taxii_services.exceptions import StatusMessageException
+from taxii_services.handlers import HttpResponseTaxii
 
 # 1. Validate request (headers, POST) [common]
 # 2. Deserialize message [pretty common]
@@ -42,7 +44,7 @@ class HeaderRule:
         for rule in header_rules:
             header_name = rule.header_name
             request_value = django_request.META.get(header_name)
-            if request_value is None and rule.presence == PRESENCE_REQUIRED:
+            if request_value is None and rule.presence == HeaderRule.PRESENCE_REQUIRED:
                 raise ValueError('Required header not present: %s' % header_name)
             elif request_value is not None and rule.presence == HeaderRule.PRESENCE_PROHIBITED:
                 raise ValueError('Prohibited header is present: %s' % header_name)
@@ -81,7 +83,10 @@ TAXII_HeaderRules = [
     HeaderRule('HTTP_X_TAXII_SERVICES', HeaderRule.PRESENCE_REQUIRED, VID_TAXII_SERVICES_10)]
 
 
-def validate_taxii(header_rules=TAXII_HeaderRules, message_types=None, do_validate=True):
+def validate_taxii(header_rules=None, message_types=None, do_validate=True):
+
+    if header_rules is None:
+        header_rules = TAXII_HeaderRules
 
     def decorator(view_func):
         @wraps(view_func)
@@ -117,7 +122,7 @@ def validate_taxii(header_rules=TAXII_HeaderRules, message_types=None, do_valida
                     raise ValueError('Something strange happened with message_types! Was not a list or object!')
             except ValueError as e:
                 msg = tm11.StatusMessage(generate_message_id(), message.message_id, status_type='FAILURE', message=e.message)
-                return response_utils.HttpResponseTaxii(msg.to_xml(), response_headers)
+                return HttpResponseTaxii(msg.to_xml(), response_headers)
 
             kwargs['taxii_message'] = message
             return view_func(request, *args, **kwargs)
