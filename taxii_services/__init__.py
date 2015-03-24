@@ -18,6 +18,11 @@ def register_admins(admin_list=None):
 # handler is not unique
 
 
+def DiscoveryRequestHandler():
+    import taxii_services.message_handlers.discovery_request_handlers
+    return taxii_services.message_handlers.discovery_request_handlers.DiscoveryRequestHandler
+
+
 DEFAULT_MESSAGE_HANDLERS = [
     # TODO: Implement this.
     # 'taxii_services.handlers.default.CollectionInformationRequest10Handler',

@@ -94,7 +94,7 @@ class QueryHandlerAdmin(admin.ModelAdmin):
 
 
 class MessageHandlerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'module_name', 'class_name', 'supported_messages', 'version']
+    list_display = ['name', 'description', 'handler', 'module_name', 'class_name', 'supported_messages', 'version']
 
 
 def register_admins(admin_list=None):

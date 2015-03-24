@@ -164,6 +164,8 @@ class _Handler(models.Model):
     """
     A handler is an extension point that allows user-defined code to be used
     in conjunction with django-taxii-services
+
+    A handler can either be a callable that returns a handler class or a handler class.
     """
     #: Subclasses use handler_function to indicate what functions they call for handling
     handler_functions = []
@@ -199,11 +201,18 @@ class _Handler(models.Model):
     def clean(self):
         """
         Given the handler, do lots of validation.
+
+        self.handler is either a class name
+        (e.g., taxii_services.message_handlers.discovery_request_handlers.DiscoveryRequestHandler) or a callable
+        that returns a class (e.g., taxii_services.DiscoveryRequestHandler).
+
+        The handler is normalized as such:
+        If the handler is a class name, self.module_name and self.class_name will become basically a split up
+        version of the handler string. Otherwise, self.module_name and self.class will be whatever
+        the module/class of whatever the callable points to.
         """
 
-        module_name, class_name = self.handler.rsplit('.', 1)
-        self.module_name = module_name
-        self.class_name = class_name
+        module_name, class_or_callable_name = self.handler.rsplit('.', 1)
 
         try:
             module = import_module(module_name)
@@ -212,10 +221,19 @@ class _Handler(models.Model):
                                   (module_name, str(sys.exc_info())))
 
         try:
-            handler_class = getattr(module, class_name)
+            class_or_callable = getattr(module, class_or_callable_name)
         except:
-            raise ValidationError('Class (%s) was not found in module (%s).' %
-                                  (class_name, module_name))
+            raise ValidationError('Class or callable (%s) was not found in module (%s).' %
+                                  (class_or_callable_name, module_name))
+
+        if callable(class_or_callable):
+            handler_class = class_or_callable()
+            self.module_name = handler_class.__module__
+            self.class_name = handler_class.__name__
+        else:
+            self.module_name = module_name
+            self.class_name = class_or_callable_name
+            handler_class = class_or_callable
 
         for f in self.handler_functions:
             try:

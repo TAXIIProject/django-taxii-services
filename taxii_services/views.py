@@ -78,14 +78,7 @@ def service_router(request, path, do_validate=True):
 
     service = handlers.get_service_from_path(request.path)
     handler = service.get_message_handler(taxii_message)
-    module_name, class_name = handler.handler.rsplit('.', 1)
-
-    try:
-        module = import_module(module_name)
-        handler_class = getattr(module, class_name)
-    except Exception as e:
-        type, value, tb = sys.exc_info()
-        raise type, ("Error importing handler: %s" % handler.handler, type, value), tb
+    handler_class = handler.get_handler_class()
 
     handler_class.validate_headers(request, taxii_message.message_id)
     handler_class.validate_message_is_supported(taxii_message)
