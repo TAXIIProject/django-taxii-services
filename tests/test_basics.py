@@ -21,3 +21,14 @@ class BasicsTests(TestCase):
         import taxii_services.models
         import taxii_services.urls
         import taxii_services.views
+
+        """
+        Test import of default message handlers.
+        """
+        import taxii_services.message_handlers.base_handlers
+        import taxii_services.message_handlers.discovery_request_handlers
+        import taxii_services.message_handlers.collection_information_request_handlers
+        import taxii_services.message_handlers.inbox_message_handlers
+        import taxii_services.message_handlers.poll_fulifllment_request_handlers
+        import taxii_services.message_handlers.poll_request_handlers
+        import taxii_services.message_handlers.subscription_request_handlers

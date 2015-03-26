@@ -177,7 +177,7 @@ def add_query_handlers():
 
 
 def add_supported_queries():
-    qh = QueryHandler.objects.get(handler='taxii_services.handlers.default.StixXml111QueryHandler')
+    qh = QueryHandler.objects.get(handler='taxii_services.query_handlers.StixXml111QueryHandler')
     sq = SupportedQuery(name='All STIX 1.1.1',
                         description='tmp description',
                         query_handler=qh,
@@ -206,8 +206,8 @@ def add_basics():
 
 
 def add_collection_service():
-    cih = MessageHandler.objects.get(handler='taxii_services.handlers.default.CollectionInformationRequestHandler')
-    smh = MessageHandler.objects.get(handler='taxii_services.handlers.default.SubscriptionRequestHandler')
+    cih = MessageHandler.objects.get(handler='taxii_services.message_handlers.CollectionInformationRequestHandler')
+    smh = MessageHandler.objects.get(handler='taxii_services.message_handlers.SubscriptionRequestHandler')
 
     cis = CollectionManagementService(name='Test Collection Management Service 1',
                                       path=COLLECTION_PATH,
@@ -220,7 +220,7 @@ def add_collection_service():
 
 
 def add_discovery_service():
-    disc_handler = MessageHandler.objects.get(handler='taxii_services.handlers.default.DiscoveryRequestHandler')
+    disc_handler = MessageHandler.objects.get(handler='taxii_services.message_handlers.DiscoveryRequestHandler')
     ds = DiscoveryService(name='Test Discovery Service 1',
                           path=DISCOVERY_PATH,
                           description='Test description.',
@@ -231,7 +231,7 @@ def add_discovery_service():
 
 
 def add_inbox_service():
-    ih = MessageHandler.objects.get(handler='taxii_services.handlers.default.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.message_handlers.InboxMessageHandler')
     inbox_1 = InboxService(name='Test Inbox 1',
                            path='/test_inbox_1/',
                            description='Description!',
@@ -244,7 +244,7 @@ def add_inbox_service():
     inbox_1.destination_collections = DataCollection.objects.filter(name='default')
     inbox_1.save()
 
-    ih = MessageHandler.objects.get(handler='taxii_services.handlers.default.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.message_handlers.InboxMessageHandler')
     inbox_2 = InboxService(name='Test Inbox 2',
                            path='/test_inbox_2/',
                            description='Description!',
@@ -257,7 +257,7 @@ def add_inbox_service():
     inbox_2.destination_collections = DataCollection.objects.filter(name='default')
     inbox_2.save()
 
-    ih = MessageHandler.objects.get(handler='taxii_services.handlers.default.InboxMessageHandler')
+    ih = MessageHandler.objects.get(handler='taxii_services.message_handlers.InboxMessageHandler')
     inbox_3 = InboxService(name='Test Inbox 3',
                            path='/test_inbox_3/',
                            description='Description!',
@@ -271,8 +271,8 @@ def add_inbox_service():
 
 
 def add_poll_service():
-    prh = MessageHandler.objects.get(handler='taxii_services.handlers.default.PollRequestHandler')
-    pfh = MessageHandler.objects.get(handler='taxii_services.handlers.default.PollFulfillmentRequest11Handler')
+    prh = MessageHandler.objects.get(handler='taxii_services.message_handlers.PollRequestHandler')
+    pfh = MessageHandler.objects.get(handler='taxii_services.message_handlers.PollFulfillmentRequest11Handler')
 
     ps = PollService(name='Test Poll 1',
                      path='/test_poll_1/',
@@ -282,7 +282,7 @@ def add_poll_service():
                      max_result_size=5)
     ps.save()
     ps.data_collections = DataCollection.objects.filter(name='default')
-    sqs = SupportedQuery.objects.filter(query_handler__handler='taxii_services.handlers.default.StixXml111QueryHandler')
+    sqs = SupportedQuery.objects.filter(query_handler__handler='taxii_services.query_handlers.StixXml111QueryHandler')
     ps.supported_queries = sqs
     ps.save()
 

@@ -4,7 +4,6 @@
 from taxii_services import models
 from taxii_services.exceptions import StatusMessageException
 
-import libtaxii.taxii_default_query as tdq
 from libtaxii.constants import *
 
 from copy import deepcopy

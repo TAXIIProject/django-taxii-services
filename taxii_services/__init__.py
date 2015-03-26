@@ -13,39 +13,37 @@ def register_admins(admin_list=None):
     import admin
     admin.register_admins(admin_list)
 
-# TODO: Calling this function borks loaddata with the following error:
-# IntegrityError: Problem installing fixture 'yeti\fixtures\initial_data.json': Could not load taxii_services._Handler(pk=1): column
-# handler is not unique
-
-
 DEFAULT_MESSAGE_HANDLERS = [
-    # TODO: Implement this.
-    # 'taxii_services.handlers.default.CollectionInformationRequest10Handler',
-    'taxii_services.handlers.default.CollectionInformationRequest11Handler',
-    'taxii_services.handlers.default.CollectionInformationRequestHandler',
-    'taxii_services.handlers.default.DiscoveryRequest10Handler',
-    'taxii_services.handlers.default.DiscoveryRequest11Handler',
-    'taxii_services.handlers.default.DiscoveryRequestHandler',
-    'taxii_services.handlers.default.InboxMessage10Handler',
-    'taxii_services.handlers.default.InboxMessage11Handler',
-    'taxii_services.handlers.default.InboxMessageHandler',
-    'taxii_services.handlers.default.PollFulfillmentRequest11Handler',
-    'taxii_services.handlers.default.PollRequest10Handler',
-    'taxii_services.handlers.default.PollRequest11Handler',
-    'taxii_services.handlers.default.PollRequestHandler',
-    'taxii_services.handlers.default.SubscriptionRequest10Handler',
-    'taxii_services.handlers.default.SubscriptionRequest11Handler',
-    'taxii_services.handlers.default.SubscriptionRequestHandler',
+    # TODO: Implement this one.
+    # 'taxii_services.message_handlers.CollectionInformationRequest10Handler',
+    'taxii_services.message_handlers.CollectionInformationRequest11Handler',
+    'taxii_services.message_handlers.CollectionInformationRequestHandler',
+    'taxii_services.message_handlers.DiscoveryRequest10Handler',
+    'taxii_services.message_handlers.DiscoveryRequest11Handler',
+    'taxii_services.message_handlers.DiscoveryRequestHandler',
+    'taxii_services.message_handlers.InboxMessage10Handler',
+    'taxii_services.message_handlers.InboxMessage11Handler',
+    'taxii_services.message_handlers.InboxMessageHandler',
+    'taxii_services.message_handlers.PollFulfillmentRequest11Handler',
+    'taxii_services.message_handlers.PollRequest10Handler',
+    'taxii_services.message_handlers.PollRequest11Handler',
+    'taxii_services.message_handlers.PollRequestHandler',
+    'taxii_services.message_handlers.SubscriptionRequest10Handler',
+    'taxii_services.message_handlers.SubscriptionRequest11Handler',
+    'taxii_services.message_handlers.SubscriptionRequestHandler',
 ]
 
 DEFAULT_QUERY_HANDLERS = [
-    'taxii_services.handlers.default.StixXml111QueryHandler',
+    'taxii_services.query_handlers.StixXml111QueryHandler',
     # TODO: Implement these.
-    # 'taxii_services.handlers.default.StixXml11QueryHandler',
-    # 'taxii_services.handlers.default.StixXml101QueryHandler',
-    # 'taxii_services.handlers.default.StixXml10QueryHandler'
+    # 'taxii_services.query_handlers.StixXml11QueryHandler',
+    # 'taxii_services.query_handlers.StixXml101QueryHandler',
+    # 'taxii_services.query_handlers.StixXml10QueryHandler'
 ]
 
+# TODO: Calling this function borks loaddata with the following error:
+# IntegrityError: Problem installing fixture 'yeti\fixtures\initial_data.json': Could not load taxii_services._Handler(pk=1): column
+# handler is not unique
 
 def register_message_handlers(handler_list=None):
     """
