@@ -38,8 +38,8 @@ no_wc_001 = TETestObj(target='STIX_Package/STIX_Header/Handling/Marking/Marking_
                           'terms:Terms_Of_Use',
                                       ])
 
-l_wc_001 = TETestObj(target='**/NameElement',
-                     expected_stubs=['//xal:NameElement', ])
+# l_wc_001 = TETestObj(target='**/NameElement',
+#                      expected_stubs=['//xal:NameElement', ])
 
 l_wc_002 = TETestObj(target='*/STIX_Header/Title',
                      expected_stubs=['/*/stix:STIX_Header/stix:Title', ])
@@ -71,7 +71,8 @@ class BaseXmlQueryHandlerTests(TestCase):
         """
 
         test_tes = (no_wc_001,
-                    l_wc_001, l_wc_002,
+#                    l_wc_001, l_wc_002,
+                    l_wc_002,
                     m_wc_001, m_wc_002,
                     t_wc_001, t_wc_002)
 
