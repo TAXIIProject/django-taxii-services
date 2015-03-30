@@ -50,8 +50,8 @@ l_wc_003 = TETestObj(target='**/@cybox_major_version',
 m_wc_001 = TETestObj(target='STIX_Package/*/Title',
                      expected_stubs=['/stix:STIX_Package/*/stix:Title'])
 
-m_wc_002 = TETestObj(target='STIX_Package/**/NameElement',
-                     expected_stubs=['/stix:STIX_Package//xal:NameElement'])
+# m_wc_002 = TETestObj(target='STIX_Package/**/NameElement',
+#                     expected_stubs=['/stix:STIX_Package//xal:NameElement'])
 
 t_wc_001 = TETestObj(target='STIX_Package/STIX_Header/*',
                      expected_stubs=['/stix:STIX_Package/stix:STIX_Header/*',
@@ -73,7 +73,7 @@ class BaseXmlQueryHandlerTests(TestCase):
         test_tes = (no_wc_001,
 #                    l_wc_001, l_wc_002,
                     l_wc_002,
-                    m_wc_001, m_wc_002,
+                    m_wc_001, # m_wc_002,
                     t_wc_001, t_wc_002)
 
         from taxii_services.query_handlers.stix_xml_111_handler import StixXml111QueryHandler
