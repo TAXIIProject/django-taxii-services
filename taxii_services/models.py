@@ -14,6 +14,7 @@ from libtaxii.constants import *
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import post_save, pre_save
+from django.contrib.sites.models import Site
 from django.core.exceptions import ObjectDoesNotExist
 from importlib import import_module
 from itertools import chain
@@ -186,10 +187,9 @@ class _Handler(models.Model):
         """
 
         if (self.module_name is None or
-            len(self.module_name) == 0 or
-            self.class_name is None or
-            len(self.class_name) == 0):
-
+                    len(self.module_name) == 0 or
+                    self.class_name is None or
+                    len(self.class_name) == 0):
             self.clean()
 
         module = import_module(self.module_name)
@@ -235,7 +235,8 @@ class _Handler(models.Model):
             # TODO: Check the version on load
             self.version = handler_class.version
         except:
-            raise ValidationError('Could not read version from class (%s). Does the class have a static version property?' % handler_class)
+            raise ValidationError(
+                'Could not read version from class (%s). Does the class have a static version property?' % handler_class)
 
         return handler_class  # This is used by subclasses to extract subclass-specific attrs
 
@@ -260,6 +261,19 @@ class _Tag(models.Model):
         return s
 
 
+def get_protocol(binding_id):
+    """
+    Determine the HTTP protocol url prefix associated with the given binding id.
+    :param binding_id:
+    :return:
+    """
+    binding_to_protocol = {VID_TAXII_HTTP_10: "http", VID_TAXII_HTTPS_10: "https"}
+    try:
+        return binding_to_protocol[binding_id]
+    except:
+        raise ValueError("Unknown Protocol Binding ID %s" % binding_id)
+
+
 class _TaxiiService(models.Model):
     """
     Not to be used by users directly. Defines common fields that all
@@ -275,6 +289,14 @@ class _TaxiiService(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
 
+    def build_service_address(self, binding_id):
+        """
+        Build the service URL for a given binding ID
+        :param binding_id:
+        :return: The complete service URL.
+        """
+        return "%s://%s%s" % (get_protocol(binding_id), Site.objects.get_current().domain, self.path)
+
     def to_service_instances_10(self):
         """
         Returns:
@@ -289,7 +311,7 @@ class _TaxiiService(models.Model):
             si = tm10.ServiceInstance(service_type=st,
                                       services_version=VID_TAXII_SERVICES_11,
                                       protocol_binding=pb.binding_id,
-                                      service_address=self.path,  # TODO: Get the server's real path and prepend it here
+                                      service_address=self.build_service_address(pb.binding_id),
                                       message_bindings=[mb.binding_id for mb in self.supported_message_bindings.all()],
                                       available=self.enabled,
                                       message=self.description)
@@ -308,7 +330,7 @@ class _TaxiiService(models.Model):
                                       services_version=VID_TAXII_SERVICES_11,
                                       available=self.enabled,
                                       protocol_binding=pb.binding_id,
-                                      service_address=self.path,  # TODO: Get the server's real path and prepend it here
+                                      service_address=self.build_service_address(pb.binding_id),
                                       message_bindings=[mb.binding_id for mb in self.supported_message_bindings.all()],
                                       message=self.description)
             service_instances.append(si)
@@ -349,13 +371,13 @@ class CollectionManagementService(_TaxiiService):
     collection_information_handler = models.ForeignKey('MessageHandler',
                                                        related_name='collection_information',
                                                        limit_choices_to={'supported_messages__contains':
-                                                                         'CollectionInformationRequest'},
+                                                                             'CollectionInformationRequest'},
                                                        blank=True,
                                                        null=True)
     subscription_management_handler = models.ForeignKey('MessageHandler',
                                                         related_name='subscription_management',
                                                         limit_choices_to={'supported_messages__contains':
-                                                                          'ManageCollectionSubscriptionRequest'},
+                                                                              'ManageCollectionSubscriptionRequest'},
                                                         blank=True,
                                                         null=True)
     advertised_collections = models.ManyToManyField('DataCollection', blank=True, null=True)
@@ -377,7 +399,7 @@ class CollectionManagementService(_TaxiiService):
 
     def clean(self):
         if (not self.collection_information_handler and
-            not self.subscription_management_handler):
+                not self.subscription_management_handler):
             raise ValidationError('At least one of Collection Information Handler or \
                                   Subscription Management Handler must have a value selected.')
 
@@ -666,7 +688,7 @@ class ContentBlock(models.Model):
             cb.message = content_block.message
         if inbox_message:
             cb.inbox_message = inbox_message
-        #  TODO: What about signatures?
+        # TODO: What about signatures?
         return cb
 
     def __unicode__(self):
@@ -714,7 +736,7 @@ class DataCollection(models.Model):
                                                           subtype=None)  # Subtypes are not in TAXII 1.0
                 matching_cbas.append(cb)
             except ContentBindingAndSubtype.DoesNotExist:
-                pass # This is OK. Other errors are not
+                pass  # This is OK. Other errors are not
 
         if len(matching_cbas) == 0:
             if self.accept_all_content:
@@ -911,7 +933,8 @@ class DataCollection(models.Model):
         for poll_service in poll_services:
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
-                poll_instance = tm10.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path, message_bindings)
+                poll_instance = tm10.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path,
+                                                            message_bindings)
                 poll_instances.append(poll_instance)
 
         return poll_instances
@@ -964,7 +987,8 @@ class DataCollection(models.Model):
         for collection_management_service in collection_management_services:
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
-                subscription_method = tm11.SubscriptionMethod(supported_protocol_binding.binding_id, collection_management_service.path, message_bindings)
+                subscription_method = tm11.SubscriptionMethod(supported_protocol_binding.binding_id,
+                                                              collection_management_service.path, message_bindings)
                 subscription_methods.append(subscription_method)
 
         return subscription_methods
@@ -1016,7 +1040,8 @@ class QueryScope(models.Model):
         try:
             validation.do_check(self.scope, 'scope', regex_tuple=tdq.targeting_expression_regex)
         except:
-            raise ValidationError('Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) separated by a /. No leading slash.')
+            raise ValidationError(
+                'Scope syntax was not valid. Syntax is a list of: (<item>, *, **, or @<item>) separated by a /. No leading slash.')
 
         handler_class = self.supported_query.query_handler.get_handler_class()
 
@@ -1037,7 +1062,7 @@ class DiscoveryService(_TaxiiService):
     service_type = SVC_DISCOVERY
     discovery_handler = models.ForeignKey('MessageHandler',
                                           limit_choices_to={'supported_messages__contains':
-                                                            'DiscoveryRequest'})
+                                                                'DiscoveryRequest'})
     advertised_discovery_services = models.ManyToManyField('self', blank=True)
     advertised_inbox_services = models.ManyToManyField('InboxService', blank=True)
     advertised_poll_services = models.ManyToManyField('PollService', blank=True)
@@ -1214,7 +1239,7 @@ class InboxService(_TaxiiService):
     service_type = SVC_INBOX
     inbox_message_handler = models.ForeignKey('MessageHandler',
                                               limit_choices_to={'supported_messages__contains':
-                                                                'InboxMessage'})
+                                                                    'InboxMessage'})
     destination_collection_status = models.CharField(max_length=MAX_NAME_LENGTH, choices=ROP_CHOICES)
     destination_collections = models.ManyToManyField('DataCollection', blank=True)
     accept_all_content = models.BooleanField(default=False)
@@ -1275,13 +1300,15 @@ class InboxService(_TaxiiService):
             raise StatusMessageException(in_response_to,
                                          ST_DESTINATION_COLLECTION_ERROR,
                                          'A Destination_Collection_Name is required and none were specified',
-                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in self.destination_collections.all()]})
+                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in
+                                                                      self.destination_collections.all()]})
 
         if self.destination_collection_status == PROHIBITED[0] and num > 0:
             raise StatusMessageException(in_response_to,
                                          ST_DESTINATION_COLLECTION_ERROR,
                                          'Destination_Collection_Names are prohibited on this Inbox Service',
-                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in self.destination_collections.all()]})
+                                         {SD_ACCEPTABLE_DESTINATION: [str(dc.name) for dc in
+                                                                      self.destination_collections.all()]})
 
         collections = []
         for name in name_list:
@@ -1357,6 +1384,7 @@ class MessageBinding(_BindingBase):
     Ex:
     XML message binding id : "urn:taxii.mitre.org:message:xml:1.1"
     """
+
     class Meta:
         verbose_name = "Message Binding"
 
@@ -1388,11 +1416,11 @@ class PollService(_TaxiiService):
     poll_request_handler = models.ForeignKey('MessageHandler',
                                              related_name='poll_request',
                                              limit_choices_to={'supported_messages__contains':
-                                                               'PollRequest'})
+                                                                   'PollRequest'})
     poll_fulfillment_handler = models.ForeignKey('MessageHandler',
                                                  related_name='poll_fulfillment',
                                                  limit_choices_to={'supported_messages__contains':
-                                                                   'PollFulfillmentRequest'},
+                                                                       'PollFulfillmentRequest'},
                                                  blank=True,
                                                  null=True)
     data_collections = models.ManyToManyField('DataCollection')
@@ -1529,6 +1557,7 @@ class ProtocolBinding(_BindingBase):
     Ex:
     HTTP Protocol Binding : "urn:taxii.mitre.org:protocol:http:1.0"
     """
+
     class Meta:
         verbose_name = "Protocol Binding"
 
@@ -1543,7 +1572,7 @@ class QueryHandler(_Handler):
     # TODO: Update this list
     handler_functions = ['get_supported_cms',
                          'get_supported_tevs',
-                         #'is_scope_supported',
+                         # 'is_scope_supported',
                          'is_target_supported',
                          'filter_content',
                          'update_db_kwargs']
@@ -1580,8 +1609,8 @@ class QueryHandler(_Handler):
         verbose_name = "Query Handler"
 
 
-#class QueryHandlerCapabilityModule(models.Model):
-#    """
+# class QueryHandlerCapabilityModule(models.Model):
+# """
 #    Assists in managing the QueryHandler/CapabilityModule relationships
 #    """
 #    query_handler = models.ForeignKey('QueryHandler')
@@ -1602,6 +1631,7 @@ def update_query_handler(sender, **kwargs):
     for tev in handler_class.get_supported_tevs():
         tev_obj = TargetingExpressionId.objects.get(value=tev)
         instance.targeting_expression_ids.add(tev_obj)
+
 
 post_save.connect(update_query_handler, sender=QueryHandler)
 
@@ -1684,7 +1714,7 @@ class Subscription(models.Model):
     """
     Model for Subscriptions
     """
-    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True, default=uuid.uuid4) #TODO: See #26
+    subscription_id = models.CharField(max_length=MAX_NAME_LENGTH, unique=True, default=uuid.uuid4)  #TODO: See #26
     data_collection = models.ForeignKey('DataCollection')
     response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=RESPONSE_CHOICES, default=RT_FULL)
     accept_all_content = models.BooleanField(default=False)
@@ -1738,7 +1768,8 @@ class Subscription(models.Model):
         model
         """
         subscription_params = tm11.SubscriptionParameters(response_type=self.response_type,
-                                                          content_bindings=[str(x) for x in self.supported_content.all()])
+                                                          content_bindings=[str(x) for x in
+                                                                            self.supported_content.all()])
 
         if self.query:
             subscription_params.query = self.query.to_query_11()
