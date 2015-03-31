@@ -933,7 +933,8 @@ class DataCollection(models.Model):
         for poll_service in poll_services:
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
-                poll_instance = tm10.PollingServiceInstance(supported_protocol_binding.binding_id, poll_service.path,
+                poll_instance = tm10.PollingServiceInstance(supported_protocol_binding.binding_id,
+                            poll_service.build_service_address(supported_protocol_binding.binding_id),
                                                             message_bindings)
                 poll_instances.append(poll_instance)
 
@@ -950,7 +951,7 @@ class DataCollection(models.Model):
             message_bindings = [mb.binding_id for mb in poll_service.supported_message_bindings.all()]
             for supported_protocol_binding in poll_service.supported_protocol_bindings.all():
                 poll_instance = tm11.PollingServiceInstance(supported_protocol_binding.binding_id,
-                                                            poll_service.path,
+                                    poll_service.build_service_address(supported_protocol_binding.binding_id),
                                                             message_bindings)
                 poll_instances.append(poll_instance)
 
@@ -969,7 +970,7 @@ class DataCollection(models.Model):
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
                 subscription_method = tm10.SubscriptionMethod(supported_protocol_binding.binding_id,
-                                                              collection_management_service.path,
+                              collection_management_service.build_service_address(supported_protocol_binding.binding_id),
                                                               message_bindings)
                 subscription_methods.append(subscription_method)
 
@@ -988,7 +989,8 @@ class DataCollection(models.Model):
             message_bindings = [mb.binding_id for mb in collection_management_service.supported_message_bindings.all()]
             for supported_protocol_binding in collection_management_service.supported_protocol_bindings.all():
                 subscription_method = tm11.SubscriptionMethod(supported_protocol_binding.binding_id,
-                                                              collection_management_service.path, message_bindings)
+                            collection_management_service.build_service_address(supported_protocol_binding.binding_id),
+                                                              message_bindings)
                 subscription_methods.append(subscription_method)
 
         return subscription_methods
@@ -1005,7 +1007,7 @@ class DataCollection(models.Model):
             message_bindings = [mb.binding_id for mb in inbox_service.supported_message_bindings.all()]
             for supported_protocol_binding in inbox_service.supported_protocol_bindings.all():
                 receiving_inbox_service = tm11.ReceivingInboxService(supported_protocol_binding.binding_id,
-                                                                     inbox_service.path,
+                                                                     inbox_service.build_service_address(supported_protocol_binding.binding_id),
                                                                      message_bindings,
                                                                      # TODO: Work on supported_contents
                                                                      supported_contents=None)
