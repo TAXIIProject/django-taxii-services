@@ -1,7 +1,7 @@
 # Copyright (C) 2014 - The MITRE Corporation
 # For license information, see the LICENSE.txt file
 
-__version__ = "0.5.dev0"
+from .version import __version__  # noqa
 
 def register_admins(admin_list=None):
     """
