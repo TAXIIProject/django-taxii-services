@@ -1,6 +1,26 @@
 django-taxii-services
 =====================
 
+Add TAXII support to Django projects.
+
+:Source: https://github.com/TAXIIProject/django-taxii-services
+:Documentation: http://taxii-services.readthedocs.io
+:Information: http://taxiiproject.github.io/
+:Download: https://pypi.python.org/pypi/taxii-services
+
+|travis badge| |landscape.io badge| |version badge| |downloads badge|
+
+.. |travis badge| image:: https://api.travis-ci.org/TAXIIProject/django-taxii-services.svg?branch=master
+   :target: https://travis-ci.org/TAXIIProject/django-taxii-services
+   :alt: Build Status
+.. |landscape.io badge| image:: https://landscape.io/github/TAXIIProject/django-taxii-services/master/landscape.svg?style=flat
+   :target: https://landscape.io/github/TAXIIProject/django-taxii-services/master
+   :alt: Code Health
+.. |version badge| image:: https://img.shields.io/pypi/v/taxii-services.svg?maxAge=3600
+   :target: https://pypi.python.org/pypi/taxii-services/
+.. |downloads badge| image:: https://img.shields.io/pypi/dm/taxii-services.svg?maxAge=3600
+   :target: https://pypi.python.org/pypi/taxii-services/
+
 Overview
 --------
 
