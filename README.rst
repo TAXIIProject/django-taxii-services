@@ -38,10 +38,7 @@ django-taxii-services include:
    easy to use.
 
 **Please Note** that this library is under rapid development. If you see
-anything you'd like to ask a question on, please open an issue on GitHub
-or contact the public discussion list
-(taxii-discussion-list@lists.mitre.org) or contact the TAXII Team
-privately at taxii@mitre.org
+anything you'd like to ask a question on, please open an issue on GitHub or contact the TAXII Team at taxii@mitre.org.
 
 Using django-taxii-services
 ---------------------------
@@ -109,9 +106,7 @@ TODO: Document the dependencies
 Feedback
 --------
 
-You are encouraged to provide feedback by commenting on open issues or
-signing up for the TAXII discussion list and posting your questions
-(http://taxii.mitre.org/community/registration.html).
+Please provide feedback and/or comments on open issues to taxii@mitre.org.
 
 License
 -------
