@@ -14,4 +14,5 @@ branches:
 
 notifications:
   email:
-    - taxii-commits-list@lists.mitre.org
+    - gback@mitre.org
+    - stix-commits-list@lists.mitre.org
