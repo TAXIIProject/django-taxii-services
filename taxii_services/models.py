@@ -1696,10 +1696,10 @@ class ResultSetPart(models.Model):
         if self.result_set.subscription:
             poll_response.subscription_id = self.result_set.subscription.subscription_id
 
-        poll_response.record_count = tm11.RecordCount(self.result_set.total_content_blocks, False)
+        poll_response.record_count = tm11.RecordCount(int(self.result_set.total_content_blocks), False)
         poll_response.more = self.more
         poll_response.result_id = str(self.result_set.pk)
-        poll_response.result_part_number = self.part_number
+        poll_response.result_part_number = int(self.part_number)
 
         for content_block in self.content_blocks.all():
             cb = content_block.to_content_block_11()
