@@ -1,7 +1,8 @@
 # Copyright (C) 2015 - The MITRE Corporation
 # For license information, see the LICENSE.txt file
 
-import os, sys
+import os
+import sys
 
 import django
 from django.conf import settings

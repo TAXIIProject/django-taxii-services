@@ -1,14 +1,15 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from .base_handlers import BaseMessageHandler
-from ..exceptions import StatusMessageException
-from .. import models
-
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
-from libtaxii.constants import *
 from libtaxii.common import generate_message_id
+from libtaxii.constants import *
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
+
+from taxii_services import models
+from taxii_services.exceptions import StatusMessageException
+
+from .base_handlers import BaseMessageHandler
 
 
 class SubscriptionRequest11Handler(BaseMessageHandler):

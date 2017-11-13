@@ -6,7 +6,7 @@
 from os.path import abspath, dirname, join
 import sys
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 BASE_DIR = dirname(abspath(__file__))
 VERSION_FILE = join(BASE_DIR, 'taxii_services', 'version.py')

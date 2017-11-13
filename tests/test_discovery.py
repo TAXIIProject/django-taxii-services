@@ -1,11 +1,10 @@
 # Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.test import TestCase
 from django.conf import settings
-
-from libtaxii.constants import VID_TAXII_SERVICES_10, VID_TAXII_SERVICES_11
-from libtaxii.constants import ST_BAD_MESSAGE
+from django.test import TestCase
+from libtaxii.constants import (ST_BAD_MESSAGE, VID_TAXII_SERVICES_10,
+                                VID_TAXII_SERVICES_11)
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 

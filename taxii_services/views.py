@@ -3,23 +3,23 @@
 
 # This only contains basic views for basic TAXII Services
 
-from .exceptions import StatusMessageException
-from .util import request_utils
-import handlers
-
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
-from libtaxii.constants import *
-from libtaxii.validation import TAXII10Validator, TAXII11Validator
-
+from StringIO import StringIO
 import collections
+from importlib import import_module
+import sys
+import traceback
+
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
+from libtaxii.constants import *
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
+from libtaxii.validation import TAXII10Validator, TAXII11Validator
 from lxml.etree import XMLSyntaxError
-from StringIO import StringIO
-import traceback
-import sys
-from importlib import import_module
+
+from taxii_services import handlers
+from taxii_services.exceptions import StatusMessageException
+from taxii_services.util import request_utils
 
 ParseTuple = collections.namedtuple('ParseTuple', ['validator', 'parser'])
 

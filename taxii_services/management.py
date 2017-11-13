@@ -1,11 +1,11 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from .models import MessageHandler, QueryHandler
-
 from django.core.exceptions import AppRegistryNotReady
 from django.db.models.signals import post_syncdb
 from django.db.utils import DatabaseError
+
+from taxii_services.models import MessageHandler, QueryHandler
 
 query_handlers_to_retry = []
 message_handlers_to_retry = []

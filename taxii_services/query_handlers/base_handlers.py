@@ -1,16 +1,15 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from ..exceptions import StatusMessageException
-
-import libtaxii.taxii_default_query as tdq
-from libtaxii.constants import *
-from libtaxii.common import parse
-from ..models import SupportInfo
-
 import traceback
 
+from libtaxii.common import parse
+from libtaxii.constants import *
+import libtaxii.taxii_default_query as tdq
 from lxml import etree
+
+from taxii_services.exceptions import StatusMessageException
+from taxii_services.models import SupportInfo
 
 # Define stub predicates for each relationship. Stub predicates have a placeholder for the operand and value
 EQ_CS = '[%s = \'%s\']'

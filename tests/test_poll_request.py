@@ -1,13 +1,14 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.test import TestCase
+from datetime import datetime, timedelta
+
+from dateutil.tz import tzutc
 from django.conf import settings
+from django.test import TestCase
 
 from .helpers import *
 
-from datetime import datetime, timedelta
-from dateutil.tz import tzutc
 
 def create_poll_w_query(relationship, params, target, collection='default'):
 

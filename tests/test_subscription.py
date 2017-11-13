@@ -1,12 +1,12 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.test import TestCase, Client
 from django.conf import settings
+from django.test import Client, TestCase
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
 
 from .helpers import *
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
 
 
 class SubscriptionTests11(TestCase):

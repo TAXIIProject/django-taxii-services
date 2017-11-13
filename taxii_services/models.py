@@ -2,24 +2,23 @@
 # For license information, see the LICENSE.txt file
 
 
-from .exceptions import StatusMessageException
+from importlib import import_module
+from itertools import chain
+import sys
+import uuid
 
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
-import libtaxii.taxii_default_query as tdq
+from django.contrib.sites.models import Site
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import models
+from django.db.models.signals import post_save, pre_save
 from libtaxii import validation
 from libtaxii.common import generate_message_id
 from libtaxii.constants import *
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
+import libtaxii.taxii_default_query as tdq
 
-from django.core.exceptions import ValidationError
-from django.db import models
-from django.db.models.signals import post_save, pre_save
-from django.contrib.sites.models import Site
-from django.core.exceptions import ObjectDoesNotExist
-from importlib import import_module
-from itertools import chain
-import uuid
-import sys
+from taxii_services.exceptions import StatusMessageException
 
 MAX_NAME_LENGTH = 255
 

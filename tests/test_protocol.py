@@ -6,7 +6,7 @@ from libtaxii import messages_11 as tm11
 
 from .base import DJTTestCase
 from .constants import *
-from .helpers import add_discovery_service, get_headers, DISCOVERY_PATH
+from .helpers import DISCOVERY_PATH, add_discovery_service, get_headers
 
 
 class ProtocolTests(DJTTestCase):

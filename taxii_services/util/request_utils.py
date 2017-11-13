@@ -1,13 +1,14 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from functools import wraps
+
 import libtaxii as t
+from libtaxii.common import generate_message_id
+from libtaxii.constants import *
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 import libtaxii.taxii_default_query as tdq
-from libtaxii.common import generate_message_id
-from libtaxii.constants import *
-from functools import wraps
 
 from taxii_services.exceptions import StatusMessageException
 from taxii_services.handlers import HttpResponseTaxii

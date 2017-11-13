@@ -2,10 +2,10 @@
 # For license information, see the LICENSE.txt file
 
 import libtaxii as t
-import libtaxii.messages_11 as tm11
-import libtaxii.messages_10 as tm10
-from libtaxii.constants import *
 from libtaxii.common import generate_message_id
+from libtaxii.constants import *
+import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
 
 
 class StatusMessageException(Exception):

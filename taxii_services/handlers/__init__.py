@@ -1,17 +1,17 @@
 # Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from taxii_services import models
-from taxii_services.exceptions import StatusMessageException
-
-from libtaxii.constants import *
-
 from copy import deepcopy
 import datetime
-from dateutil.tz import tzutc
-from django.http import Http404, HttpResponse
 from importlib import import_module
 import sys
+
+from dateutil.tz import tzutc
+from django.http import Http404, HttpResponse
+from libtaxii.constants import *
+
+from taxii_services import models
+from taxii_services.exceptions import StatusMessageException
 
 # TODO: Do these headers belong somewhere else?
 

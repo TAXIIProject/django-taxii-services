@@ -3,6 +3,7 @@
 
 from .version import __version__  # noqa
 
+
 def register_admins(admin_list=None):
     """
     Registers all admins or the subset specified by admin_list.

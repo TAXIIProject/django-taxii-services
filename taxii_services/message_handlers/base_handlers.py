@@ -1,10 +1,10 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from ..exceptions import StatusMessageException
-
-from libtaxii.constants import *
 from django.conf import settings
+from libtaxii.constants import *
+
+from taxii_services.exceptions import StatusMessageException
 
 
 class BaseMessageHandler(object):

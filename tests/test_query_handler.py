@@ -1,8 +1,8 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from django.test import TestCase, Client
 from django.conf import settings
+from django.test import Client, TestCase
 
 
 class TETestObj(object):

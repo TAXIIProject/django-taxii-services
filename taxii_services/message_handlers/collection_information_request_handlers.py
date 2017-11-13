@@ -1,10 +1,10 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from .base_handlers import BaseMessageHandler
-
-import libtaxii.messages_11 as tm11
 import libtaxii.messages_10 as tm10
+import libtaxii.messages_11 as tm11
+
+from .base_handlers import BaseMessageHandler
 
 
 class CollectionInformationRequest11Handler(BaseMessageHandler):

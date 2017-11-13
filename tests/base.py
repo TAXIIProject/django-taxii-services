@@ -3,14 +3,13 @@
 
 from django.conf import settings
 from django.test import TestCase
-
 from libtaxii.constants import VID_TAXII_SERVICES_10, VID_TAXII_SERVICES_11
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11
 
 from .constants import (TAXII_10_HTTP_Headers, TAXII_10_HTTPS_Headers,
                         TAXII_11_HTTP_Headers, TAXII_11_HTTPS_Headers)
-from .helpers import add_basics, make_request, get_message_from_client_response
+from .helpers import add_basics, get_message_from_client_response, make_request
 
 
 class DJTTestCase(TestCase):

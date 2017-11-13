@@ -1,14 +1,14 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-import handlers
-from .exceptions import StatusMessageException
+import logging
 
+from django.conf import settings
+from django.http import HttpResponse, HttpResponseServerError
 from libtaxii.constants import *
 
-from django.http import HttpResponseServerError, HttpResponse
-import logging
-from django.conf import settings
+from taxii_services import handlers
+from taxii_services.exceptions import StatusMessageException
 
 
 class StatusMessageExceptionMiddleware(object):

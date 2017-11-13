@@ -1,12 +1,14 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
-from .. import models
-from ..exceptions import StatusMessageException
-from libtaxii.constants import *
 import datetime
+
 import dateutil
 from dateutil.tz import tzutc
+from libtaxii.constants import *
+
+from taxii_services import models
+from taxii_services.exceptions import StatusMessageException
 
 
 class PollRequestProperties(object):
