@@ -12,14 +12,14 @@
     xmlns:cyboxVocabs="http://cybox.mitre.org/default_vocabularies-2"
     xmlns:fireeye="http://www.fireeye.com"
     xmlns:marking="http://data-marking.mitre.org/Marking-1"
-    xmlns:indicator="http://stix.mitre.org/Indicator-2" 
+    xmlns:indicator="http://stix.mitre.org/Indicator-2"
     xmlns:terms="http://data-marking.mitre.org/extensions/MarkingStructure#Terms_Of_Use-1"
-    xmlns:stixCiqIdentity="http://stix.mitre.org/extensions/Identity#CIQIdentity3.0-1" 
+    xmlns:stixCiqIdentity="http://stix.mitre.org/extensions/Identity#CIQIdentity3.0-1"
     xmlns:stixCommon="http://stix.mitre.org/common-1"
-    xmlns:stixVocabs="http://stix.mitre.org/default_vocabularies-1" 
+    xmlns:stixVocabs="http://stix.mitre.org/default_vocabularies-1"
     xmlns:ta="http://stix.mitre.org/ThreatActor-1"
     xmlns:ttp="http://stix.mitre.org/TTP-1"
-    xmlns:xpil="urn:oasis:names:tc:ciq:xpil:3" 
+    xmlns:xpil="urn:oasis:names:tc:ciq:xpil:3"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="
         http://stix.mitre.org/stix-1 http://stix.mitre.org/XMLSchema/core/1.1.1/stix_core.xsd
@@ -45,7 +45,7 @@
         <stix:Title>Poison Ivy: Assessing Damage and Extracting Intelligence</stix:Title>
         <stix:Package_Intent xsi:type="stixVocabs:PackageIntentVocab-1.0">Threat Report</stix:Package_Intent>
         <stix:Description>This report spotlights Poison Ivy (PIVY), a RAT that remains popular and effective a full eight years after its release, despite its age and familiarity in IT security circles.
-    
+
 Poison Ivy is a remote access tool that is freely available for download from its official web site at www.poisonivy-rat.com. First released in 2005, the tool has gone unchanged since 2008 with version 2.3.2. Poison Ivy includes features common to most Windows-based RATs, including key logging, screen capturing, video capturing, file transfers, system administration, password theft, and traffic relaying.
 
 Poison Ivy's wide availability and easy-to-use features make it a popular choice for all kinds of criminals. But it is probably most notable for its role in many high profile, targeted APT attacks.
@@ -30995,7 +30995,7 @@ Poison Ivy's wide availability and easy-to-use features make it a popular choice
 These APTs pursue specific targets, using RATs to maintain a persistent presence within the target's network. They move laterally and escalate system privileges to extract sensitive information-whenever the attacker wants to do so.4,5 Because some RATs used in targeted attacks are widely available, determining whether an attack is part of a broader APT campaign can be difficult. Equally challenging is identifying malicious traffic to determine the attacker's post-compromise activities and assess overall damage-these RATs often encrypt their network communications after the initial exploit.
 
 In 2011, three years after the most recent release of PIVY, attackers used the RAT to compromise security firm RSA and steal data about its SecureID authentication system. That data was subsequently used in other attacks. The RSA attack was linked to Chinese threat actors and described at the time as extremely sophisticated. Exploiting a zero-day vulnerability, the attack delivered PIVY as the payload. It was not an isolated incident. The campaign appears to have started in 2010, with many other companies compromised.
- 
+
 PIVY also played a key role in the 2011 campaign known as Nitro that targeted chemical makers, government agencies, defense contractors, and human rights groups. Still active a year later, the Nitro attackers used a zero-day vulnerability in Java to deploy PIVY in 2012. Just recently, PIVY was the payload of a zero-day exploit in Internet Explorer used in what is known as a "strategic web compromise" attack against visitors to a U.S. government website and a variety of others.
 
 RATs require live, direct, real-time human interaction by the APT attacker. This characteristic is distinctly different from crimeware (malware focused on cybercrime), where the criminal can issue commands to their botnet of compromised endpoints whenever they please and set them to work on a common goal such as a spam relay. In contrast, RATs are much more personal and may indicate that you are dealing with a dedicated threat actor that is interested in your organization specifically.

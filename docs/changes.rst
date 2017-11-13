@@ -43,21 +43,21 @@ people to use django-taxii-services
 0.1.1
 -----
 
-There was a critical bug in 0.1 that was somehow missed. (#13). 
+There was a critical bug in 0.1 that was somehow missed. (#13).
 This bug fix release is simply to fix that bug.
 
 0.1
 ---
 
 0.1 is the first version of django-taxii-services. Please note that since the
-version number is below 1.0, the API is unstable and may change in a future minor 
+version number is below 1.0, the API is unstable and may change in a future minor
 release.
 
 The intent of this release is to gauge interest for django-taxii-services
 and determine whether it makes sense to keep working on future versions.
 
-The major items accomplished in this release are: 
- 
+The major items accomplished in this release are:
+
 * Established core concepts, paradigms, and structures of the library
 * Set the technical direction of MessageHandler extension points
 * Baseline API documentation: http://taxii-services.readthedocs.org/en/latest/index.html

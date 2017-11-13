@@ -1,9 +1,9 @@
-<!-- 
+<!--
 	APT1: Exposing One of China's Cyber Espionage Units (the "APT1 Report")
-	is copyright 2013 by Mandiant Corporation and can be downloaded at 
+	is copyright 2013 by Mandiant Corporation and can be downloaded at
 	intelreport.mandiant.com.  This XML file using the STIX standard was created
 	by The MITRE Corporation using the content of the APT1 Report with Mandiant's
-	permission.  Mandiant is not responsible for the content of this file. 	
+	permission.  Mandiant is not responsible for the content of this file.
 
 	The following content represents a partial extraction of information from the
 	Mandiant APT1 Report published 2/19/13. While not all content was converted into
@@ -34,30 +34,30 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xmlns:marking="http://data-marking.mitre.org/Marking-1"
 	xmlns:terms="http://data-marking.mitre.org/extensions/MarkingStructure#Terms_Of_Use-1"
-	xmlns:cybox="http://cybox.mitre.org/cybox-2" 
+	xmlns:cybox="http://cybox.mitre.org/cybox-2"
 	xmlns:cyboxCommon="http://cybox.mitre.org/common-2"
 	xmlns:cyboxVocabs="http://cybox.mitre.org/default_vocabularies-2"
 	xmlns:AddressObject="http://cybox.mitre.org/objects#AddressObject-2"
 	xmlns:URIObject="http://cybox.mitre.org/objects#URIObject-2"
 	xmlns:LinkObject="http://cybox.mitre.org/objects#LinkObject-1"
-	xmlns:stix="http://stix.mitre.org/stix-1" 
+	xmlns:stix="http://stix.mitre.org/stix-1"
 	xmlns:stixCommon="http://stix.mitre.org/common-1"
 	xmlns:stixVocabs="http://stix.mitre.org/default_vocabularies-1"
-	xmlns:indicator="http://stix.mitre.org/Indicator-2" 
+	xmlns:indicator="http://stix.mitre.org/Indicator-2"
 	xmlns:ttp="http://stix.mitre.org/TTP-1"
 	xmlns:campaign="http://stix.mitre.org/Campaign-1"
 	xmlns:threat-actor="http://stix.mitre.org/ThreatActor-1"
 	xmlns:stix-ciq="http://stix.mitre.org/extensions/Identity#CIQIdentity3.0-1"
 	xmlns:xnl="urn:oasis:names:tc:ciq:xnl:3"
-	xmlns:xal="urn:oasis:names:tc:ciq:xal:3" 
+	xmlns:xal="urn:oasis:names:tc:ciq:xal:3"
 	xmlns:xpil="urn:oasis:names:tc:ciq:xpil:3"
-	xmlns:lmco="lockheedmartin.com" 
+	xmlns:lmco="lockheedmartin.com"
 	xmlns:mandiant="http://www.mandiant.com"
 	xmlns:mitre="http://www.mitre.org"
-	
+
 	xsi:schemaLocation="
 		http://cybox.mitre.org/objects#AddressObject-2 http://cybox.mitre.org/XMLSchema/objects/Address/2.1/Address_Object.xsd
-		http://cybox.mitre.org/objects#URIObject-2 http://cybox.mitre.org/XMLSchema/objects/URI/2.1/URI_Object.xsd		
+		http://cybox.mitre.org/objects#URIObject-2 http://cybox.mitre.org/XMLSchema/objects/URI/2.1/URI_Object.xsd
 		http://cybox.mitre.org/objects#LinkObject-1 http://cybox.mitre.org/XMLSchema/objects/Link/1.1/Link_Object.xsd
 		http://stix.mitre.org/Indicator-2 http://stix.mitre.org/XMLSchema/indicator/2.1.1/indicator.xsd
 		http://stix.mitre.org/Campaign-1 http://stix.mitre.org/XMLSchema/campaign/1.1.1/campaign.xsd
@@ -163,7 +163,7 @@
 							results, business plans, pricing documents, partnership agreements, emails and
 							contact lists from victim organizations’ leadership. We believe that the
 							extensive activity we have directly observed represents only a small fraction of
-							the cyber espionage that APT1 has committed. 
+							the cyber espionage that APT1 has committed.
 							</P>
 					</body></html>]]>
 				</stixCommon:Description>
@@ -253,7 +253,7 @@
 			</ttp:Related_TTPs>
 		</stix:TTP>
 
-<!-- Only two of the APT1 malware families (WEBC2 & HTRAN) were expressed minimally here in STIX to show how they can fit into the overall picture. 
+<!-- Only two of the APT1 malware families (WEBC2 & HTRAN) were expressed minimally here in STIX to show how they can fit into the overall picture.
 			All of the other malware families could be similarly expressed and in greater detail.  -->
 
 		<stix:TTP timestamp="2014-05-08T09:00:00.000000Z" id="mandiant:ttp-0f01c5a3-f516-4450-9381-4dd9f2279411" xsi:type="ttp:TTPType">
@@ -486,17 +486,17 @@
 					<html>
 						<body>
 							<p>
-							A DNS zone represents a collection of FQDNs that end with the same name, and which are usually registered through 
+							A DNS zone represents a collection of FQDNs that end with the same name, and which are usually registered through
 							a domain registration company and controlled by a single owner. For example, “hugesoft.org” is an FQDN but also represents
-							a zone. The FQDNs “ug-co.hugesoft.org” and “7cback.hugesoft.org” are part of the “hugesoft. org” zone and are called 
-							“subdomains” of the zone. The person who registered “hugesoft.org” may add as many subdomains as they wish and controls 
-							the IP resolutions of these FQDNs. APT1 has registered at least 107 zones since 2004. Within these zones, we know of 
-							thousands of FQDNs that have resolved to hundreds of IP addresses (which we suspect are hops) and in some instances to 
+							a zone. The FQDNs “ug-co.hugesoft.org” and “7cback.hugesoft.org” are part of the “hugesoft. org” zone and are called
+							“subdomains” of the zone. The person who registered “hugesoft.org” may add as many subdomains as they wish and controls
+							the IP resolutions of these FQDNs. APT1 has registered at least 107 zones since 2004. Within these zones, we know of
+							thousands of FQDNs that have resolved to hundreds of IP addresses (which we suspect are hops) and in some instances to
 							APT1’s source IP addresses in Shanghai.
 							</P>
 							<p>
-							The first zone we became aware of was “hugesoft. org”, which was registered through eNom, Inc. in October 2004. The 
-							registrant supplied “uglygorilla@163.com” as an email address. The supplied registration information, which is still 
+							The first zone we became aware of was “hugesoft. org”, which was registered through eNom, Inc. in October 2004. The
+							registrant supplied “uglygorilla@163.com” as an email address. The supplied registration information, which is still
 							visible in public “whois” data as of February 3, 2013, includes the following:
 							</P>
 							<code>
@@ -513,13 +513,13 @@
       							Registrant Email:uglygorilla@163.com
 							</code>
 							<p>
-							The supplied registrant information does not need to be accurate for the zone to be registered successfully. For example, 
-							“shanghai” is not a street name. Nevertheless, it is noteworthy that Shanghai appeared in the first known APT1 domain 
-							registration, along with a phone number that begins with China’s “+86” international code. In fact, Shanghai was listed 
-							as the registrant’s city in at least 24 of the 107 (22%) registrations. 
+							The supplied registrant information does not need to be accurate for the zone to be registered successfully. For example,
+							“shanghai” is not a street name. Nevertheless, it is noteworthy that Shanghai appeared in the first known APT1 domain
+							registration, along with a phone number that begins with China’s “+86” international code. In fact, Shanghai was listed
+							as the registrant’s city in at least 24 of the 107 (22%) registrations.
 							</P>
 							<p>
-							Some of the supplied registration information is obviously false. For example, consider the registration information 
+							Some of the supplied registration information is obviously false. For example, consider the registration information
 							supplied for the zone “uszzcs.com” in 2005:
 							</p>
 							<code>
@@ -529,32 +529,32 @@
        							Yellow Spring,Ohio,UNITED STATES 45387
 							</code>
 							<p>
-							Here, a phone number with a Chinese prefix (“+86”) accompanied an address in the United States. Since the United States 
-							uses the prefix “+1”, it is highly unlikely that a person living in Ohio would provide a phone number beginning with “+86”. 
-							Additionally, the city name is spelled incorrectly, as it should be “Yellow Springs” instead of “Yellow Spring”. This could 
-							have been attributed to a one-time spelling mistake, except the registrant spelled the city name incorrectly multiple times, 
-							both for the zones “uszzcs.com” and “attnpower.com”. This suggests that the registrant really thought “Yellow Spring” was the 
+							Here, a phone number with a Chinese prefix (“+86”) accompanied an address in the United States. Since the United States
+							uses the prefix “+1”, it is highly unlikely that a person living in Ohio would provide a phone number beginning with “+86”.
+							Additionally, the city name is spelled incorrectly, as it should be “Yellow Springs” instead of “Yellow Spring”. This could
+							have been attributed to a one-time spelling mistake, except the registrant spelled the city name incorrectly multiple times,
+							both for the zones “uszzcs.com” and “attnpower.com”. This suggests that the registrant really thought “Yellow Spring” was the
 							correct spelling and that he or she did not, in fact, live or work in Yellow Springs, Ohio.
 							</p>
 							<p>
-							Overall, the combination of a relatively high number of “Shanghai” registrations with obviously false registration examples 
-							in other registrations suggests a partially uncoordinated domain registration campaign from 2004 until present, in which some 
-							registrants tried to fabricate non-Shanghai locations but others did not. This is supported by contextual information on the 
-							Internet for the email address “lfengg@163.com,” which was supplied in the registration information for seven of the 107 zones. 
-							On the site “www.china-one.org,” the email address “lfengg@163.com” appears as the contact for the Shanghai Kai Optical 
-							Information Technology Co., Ltd., a website production company located in a part of Shanghai that is across the river from 
+							Overall, the combination of a relatively high number of “Shanghai” registrations with obviously false registration examples
+							in other registrations suggests a partially uncoordinated domain registration campaign from 2004 until present, in which some
+							registrants tried to fabricate non-Shanghai locations but others did not. This is supported by contextual information on the
+							Internet for the email address “lfengg@163.com,” which was supplied in the registration information for seven of the 107 zones.
+							On the site “www.china-one.org,” the email address “lfengg@163.com” appears as the contact for the Shanghai Kai Optical
+							Information Technology Co., Ltd., a website production company located in a part of Shanghai that is across the river from
 							PLA Unit 61398.
 							</p>
-							
+
 							<h1>naming themes</h1>
 							<p>
-							About half of APT1’s known zones were named according to three themes: news, technology and business. These themes cause 
-							APT1 command and control addresses to appear benign at first glance. However, we believe that the hundreds of FQDNs within 
+							About half of APT1’s known zones were named according to three themes: news, technology and business. These themes cause
+							APT1 command and control addresses to appear benign at first glance. However, we believe that the hundreds of FQDNs within
 							these zones were created for the purpose of APT1 intrusions. (Note: these themes are not unique to APT1 or even APT in general.)
 							</p>
 							<p>
-							The news-themed zones include the names of well-known news media outlets such as CNN, Yahoo and Reuters. However, they also 
-							include names referencing English-speaking countries, such as “aunewsonline.com” (Australia), “canadatvsite.com” (Canada), 
+							The news-themed zones include the names of well-known news media outlets such as CNN, Yahoo and Reuters. However, they also
+							include names referencing English-speaking countries, such as “aunewsonline.com” (Australia), “canadatvsite.com” (Canada),
 							and “todayusa.org” (U.S.). Below is a list of zones registered by APT1 that are news- themed:
 							</p>
 							<p>
@@ -597,7 +597,7 @@
 								</div>
 							</p>
 							<p>
-							The technology-themed zones reference well-known technology companies (AOL, Apple, Google, Microsoft), antivirus vendors 
+							The technology-themed zones reference well-known technology companies (AOL, Apple, Google, Microsoft), antivirus vendors
 							(McAfee, Symantec), and products (Blackberry, Bluecoat). APT1 also used more generic names referencing topics like software:
 							</p>
 							<p>
@@ -652,14 +652,14 @@
 								</div>
 							</p>
 							<p>
-							Not every zone stays within APT1’s control forever. Over a campaign lasting for so many years, APT1 has not always 
-							renewed every zone in their attack infrastructure. Additionally, while some have simply been allowed to expire, 
-							others have been transferred to the organizations that the domain names attempted to imitate. For example, in September 2011, 
+							Not every zone stays within APT1’s control forever. Over a campaign lasting for so many years, APT1 has not always
+							renewed every zone in their attack infrastructure. Additionally, while some have simply been allowed to expire,
+							others have been transferred to the organizations that the domain names attempted to imitate. For example, in September 2011,
 							Yahoo filed a complaint against “zheng youjun” of “Arizona, USA”, who registered the APT1
-							zone “myyahoonews.com”. Yahoo alleged the “<myyahoonews.com> domain name was confusingly similar to Complainant’s YAHOO! 
-							mark” and that “[zheng youjun] registered and used the <myyahoonews.com> domain name in bad faith.” In response, the National 
-							Arbitration Forum found that the site “myyahoonews.com” at the time resolved to “a phishing web page, substantially similar to 
-							the actual WorldSID website...in an effort to collect login credentials under false pretenses.” Not surprisingly, “zheng youjun” 
+							zone “myyahoonews.com”. Yahoo alleged the “<myyahoonews.com> domain name was confusingly similar to Complainant’s YAHOO!
+							mark” and that “[zheng youjun] registered and used the <myyahoonews.com> domain name in bad faith.” In response, the National
+							Arbitration Forum found that the site “myyahoonews.com” at the time resolved to “a phishing web page, substantially similar to
+							the actual WorldSID website...in an effort to collect login credentials under false pretenses.” Not surprisingly, “zheng youjun”
 							did not respond. Subsequently, control of “myyahoonews.com” was transferred from APT1 to Yahoo.
 							</p>
 						</body>
@@ -735,12 +735,12 @@
                             	From: Kevin Mandia <kevin.mandia@rocketmail.com>
                                 Subject: Internal Discussion on the Press
                                 Release
-                                
+
                                 Hello,
                                 Shall we schedule a time to meet next week?
                                 We need to finalize the press release.
                                 Details click here.
-                                
+
                                 Kevin Mandia
 								</code>
 								<p>
@@ -1089,7 +1089,7 @@
 					kill_chain_id="mandiant:kill-chain-e9dfa013-41e2-4c71-83db-279d41a13e17"/>
 			</ttp:Kill_Chain_Phases>
 		</stix:TTP>
-		
+
 		<!-- Killchain phase - Maintain Presence -->
 		<stix:TTP timestamp="2014-05-08T09:00:00.000000Z" id="mandiant:ttp-7151c6d0-7e97-47ce-9290-087315ea3db7" xsi:type="ttp:TTPType">
 			<ttp:Title>Maintain Presence</ttp:Title>
@@ -1130,7 +1130,7 @@
 						</body></html>]]>
 					</ttp:Description>
 				</ttp:Attack_Pattern>
-			</ttp:Attack_Patterns></ttp:Behavior>	
+			</ttp:Attack_Patterns></ttp:Behavior>
 			<ttp:Kill_Chain_Phases>
 				<stixCommon:Kill_Chain_Phase
 					phase_id="mandiant:kill-chain-phase-0d4b08b0-31c0-439a-a6a5-76e210d9b7b9"
@@ -1188,7 +1188,7 @@
                             	from specified accounts into text files (for the email body) and separate attachments, if there are any.
 								</P>
 							</body>
-						</html>]]>					
+						</html>]]>
 					</ttp:Description>
 				</ttp:Attack_Pattern>
 			</ttp:Attack_Patterns></ttp:Behavior>
@@ -1356,7 +1356,7 @@
 				</threat-actor:Observed_TTP>
 			</threat-actor:Observed_TTPs>
 			<threat-actor:Associated_Actors>
-				
+
 				<!-- GSD 3rd Department / 2nd Bureau -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1365,7 +1365,7 @@
 					<stixCommon:Relationship>Asserted Alias</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-94624865-2709-443f-9b4c-2891985fd69b"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- Comment Crew -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1374,7 +1374,7 @@
 					<stixCommon:Relationship>Asserted Alias</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-f1ce5a9e-0fb7-465b-acb9-e7f75098eee9"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- Comment Group -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1383,7 +1383,7 @@
 					<stixCommon:Relationship>Asserted Alias</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-5abb4d96-e3f2-4a1a-b025-c5b63ec6eb0b"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- Shady Rat -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1392,7 +1392,7 @@
 					<stixCommon:Relationship>Asserted Alias</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-d9619c21-9d4f-414e-9471-36bb8fc42bbe"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- UglyGorilla -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1401,7 +1401,7 @@
 					<stixCommon:Relationship>Member</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-6d179234-61fc-40c4-ae86-3d53308d8e65"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- DOTA -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1410,7 +1410,7 @@
 					<stixCommon:Relationship>Member</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-d84cf283-93be-4ca7-890d-76c63eff3636"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- SuperHard -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1419,7 +1419,7 @@
 					<stixCommon:Relationship>Member</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-02e7c48f-0301-4c23-b3e4-02e5a0114c21"/>
 				</threat-actor:Associated_Actor>
-				
+
 				<!-- China Telecom -->
 				<threat-actor:Associated_Actor>
 					<stixCommon:Confidence>
@@ -1431,46 +1431,46 @@
 								Market Department Examining Control Affairs Division Report
 								</P>
 								<p>
-								Requesting Concurrence Concerning the General Staff Department 3rd Department 2nd Bureau 
+								Requesting Concurrence Concerning the General Staff Department 3rd Department 2nd Bureau
 								Request to Use Our Company’s Communication Channel
 								</P>
 								<p>
 								Division Leader Wu:
 								</P>
 								<p>
-								The Chinese People’s Liberation Army Unit 61398 (General Staff Department 3rd Department 
-								2nd Bureau) wrote to us a few days ago saying that, in accordance with their central command 
+								The Chinese People’s Liberation Army Unit 61398 (General Staff Department 3rd Department
+								2nd Bureau) wrote to us a few days ago saying that, in accordance with their central command
 								“8508” on war strategy construction [or infrastructure] need, the General Staff Department
-								3rd Department 2nd Bureau (Gaoqiao Base) needs to communicate with Shanghai City 005 Center 
-								(Shanghai Intercommunication Network Control Center within East Gate Bureau) regarding 
+								3rd Department 2nd Bureau (Gaoqiao Base) needs to communicate with Shanghai City 005 Center
+								(Shanghai Intercommunication Network Control Center within East Gate Bureau) regarding
 								intercommunication affairs. This bureau already placed fiber-optic cable at the
 								East Gate front entrance [road pole]. They need to use two ports to enter our company’s
-								East Gate communication channel. The length is about 30m. At the same time, the second stage 
-								construction (in Gaoqiao Base) needs to enter into our company’s Shanghai Nanhui Communication 
+								East Gate communication channel. The length is about 30m. At the same time, the second stage
+								construction (in Gaoqiao Base) needs to enter into our company’s Shanghai Nanhui Communication
 								Park 005 Center (special-use bureau). This military fiber-optic cable has
 								already been placed at the Shanghai Nanhui Communication Park entrance. They need to use
-								4 of our company ports inside the Nanhui Communication Park to enter. The length is 600m. Upon 
-								our division’s negotiation with the 3rd Department 2nd Bureau’s communication branch, the military 
-								has promised to pay at most 40,000 Yuan for each port. They also hope Shanghai Telecom will smoothly 
-								accomplish this task for the military based on the principle that national defense construction is 
-								important. After checking the above areas’ channels, our company has a relatively abundant inventory 
+								4 of our company ports inside the Nanhui Communication Park to enter. The length is 600m. Upon
+								our division’s negotiation with the 3rd Department 2nd Bureau’s communication branch, the military
+								has promised to pay at most 40,000 Yuan for each port. They also hope Shanghai Telecom will smoothly
+								accomplish this task for the military based on the principle that national defense construction is
+								important. After checking the above areas’ channels, our company has a relatively abundant inventory
 								to satisfy the military’s request.
 								</P>
 								<p>
-								This is our suggestion: because this is concerning defense construction, and also the 3rd Department 
-								2nd Bureau is a very important communication control department, we agree to provide the requested channels 
-								according to the military’s suggested price. Because this is a one-time payment, and it is difficult 
-								to use the normal renting method, we suggest our company accept one-time payment using the reason of 
-								“Military Co-Construction [with China Telecom] of Communication Channels” and provide from our inventory. 
-								The military’s co-building does not interfere with our proprietary rights. If something breaks, the military 
-								is responsible to repair it and pay for the expenses. After you agree with our suggestion, we will sign 
+								This is our suggestion: because this is concerning defense construction, and also the 3rd Department
+								2nd Bureau is a very important communication control department, we agree to provide the requested channels
+								according to the military’s suggested price. Because this is a one-time payment, and it is difficult
+								to use the normal renting method, we suggest our company accept one-time payment using the reason of
+								“Military Co-Construction [with China Telecom] of Communication Channels” and provide from our inventory.
+								The military’s co-building does not interfere with our proprietary rights. If something breaks, the military
+								is responsible to repair it and pay for the expenses. After you agree with our suggestion, we will sign
 								an agreement with the communication branch of 61398 and implement it.
 								</P>
 								<p>
 								Please provide a statement about whether the above suggestion is appropriate or not.
 								</P>
 								<p>
-								[Handwritten Note]Agree with the Market Department Examining Control Affairs Division suggestion; 
+								[Handwritten Note]Agree with the Market Department Examining Control Affairs Division suggestion;
 								inside the agreement clearly [...define? (illegible) ...] both party’s responsibilities.
 								</P>
 							</body></html>]]>
@@ -1479,7 +1479,7 @@
 					<stixCommon:Relationship>Infrastructure Provided By</stixCommon:Relationship>
 					<stixCommon:Threat_Actor idref="mandiant:threat-actor-76dd3859-31a6-43c5-9f3e-9c6ac745b61b"/>
 				</threat-actor:Associated_Actor>
-				
+
 			</threat-actor:Associated_Actors>
 		</stix:Threat_Actor>
 
@@ -1661,7 +1661,7 @@
 				</threat-actor:Associated_Actor>
 			</threat-actor:Associated_Actors>
 		</stix:Threat_Actor>
-		
+
 		<!-- ThreatActor characterization for PLA General Staff -->
 		<stix:Threat_Actor timestamp="2014-05-08T09:00:00.000000Z" id="mandiant:threat-actor-5ac0fd8e-5804-4849-a170-4ec0d15a5e8b" xsi:type="threat-actor:ThreatActorType">
 			<threat-actor:Identity>
@@ -1698,7 +1698,7 @@
 				<stix-ciq:Role>Nation-State</stix-ciq:Role>
 			</threat-actor:Identity>
 		</stix:Threat_Actor>
-		
+
 		<!-- ThreatActor characterization for China Telecom-->
 		<stix:Threat_Actor timestamp="2014-05-08T09:00:00.000000Z" id="mandiant:threat-actor-76dd3859-31a6-43c5-9f3e-9c6ac745b61b" xsi:type="threat-actor:ThreatActorType">
 			<threat-actor:Identity xsi:type="stix-ciq:CIQIdentity3.0InstanceType">
@@ -1722,6 +1722,6 @@
 				<stix-ciq:Role>State-influenced Commercial Entity</stix-ciq:Role>
 			</threat-actor:Identity>
 		</stix:Threat_Actor>
-		
+
 	</stix:Threat_Actors>
 </stix:STIX_Package>
