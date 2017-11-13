@@ -11,6 +11,7 @@ from setuptools import setup, find_packages
 BASE_DIR = dirname(abspath(__file__))
 VERSION_FILE = join(BASE_DIR, 'taxii_services', 'version.py')
 
+
 def get_version():
     with open(VERSION_FILE) as f:
         for line in f.readlines():
@@ -20,8 +21,8 @@ def get_version():
         raise AttributeError("Package does not have a __version__")
 
 
-if sys.version_info < (2, 6):
-    raise Exception('django-taxii-services requires Python 2.6 or higher.')
+if sys.version_info < (2, 7):
+    raise Exception('django-taxii-services requires Python 2.7 or higher.')
 
 install_requires = [
     'Django>=1.7.0,<1.9',
@@ -54,4 +55,12 @@ setup(name='taxii_services',
       extras_require=extras_require,
       long_description=long_description,
       keywords="taxii django taxii_services django-taxii-services",
+      classifiers=[
+          'Development Status :: 4 - Beta',
+          'Intended Audience :: Developers',
+          'Topic :: Security',
+          'License :: OSI Approved :: BSD License',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.7',
+      ],
       )
