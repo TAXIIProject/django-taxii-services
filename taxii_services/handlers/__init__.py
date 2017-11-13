@@ -1,6 +1,8 @@
 # Copyright (c) 2015, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 from copy import deepcopy
 import datetime
 from importlib import import_module

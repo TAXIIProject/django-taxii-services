@@ -1,6 +1,8 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 from libtaxii.constants import *
 import libtaxii.messages_10 as tm10
 import libtaxii.messages_11 as tm11

@@ -1,6 +1,8 @@
 # Copyright (C) 2014 - The MITRE Corporation
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 from .version import __version__  # noqa
 
 
@@ -11,7 +13,7 @@ def register_admins(admin_list=None):
     Arguments:
         admin_list (list of taxii_services.admin objects to register) - **optional**
     """
-    import admin
+    from taxii_services import admin
     admin.register_admins(admin_list)
 
 DEFAULT_MESSAGE_HANDLERS = [
@@ -56,7 +58,7 @@ def register_message_handlers(handler_list=None):
     if handler_list is None:
         handler_list = DEFAULT_MESSAGE_HANDLERS
 
-    import management
+    from taxii_services import management
 
     for handler in handler_list:
         management.register_message_handler(handler)
@@ -72,7 +74,7 @@ def register_query_handlers(handler_list=None):
     if handler_list is None:
         handler_list = DEFAULT_QUERY_HANDLERS
 
-    import management
+    from taxii_services import management
 
     for handler in handler_list:
         management.register_query_handler(handler)

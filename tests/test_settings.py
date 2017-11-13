@@ -1,6 +1,8 @@
 # Copyright (C) 2015 - The MITRE Corporation
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 import os
 
 DEBUG = True

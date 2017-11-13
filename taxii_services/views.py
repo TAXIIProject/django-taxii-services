@@ -3,6 +3,8 @@
 
 # This only contains basic views for basic TAXII Services
 
+from __future__ import absolute_import
+
 from StringIO import StringIO
 import collections
 from importlib import import_module

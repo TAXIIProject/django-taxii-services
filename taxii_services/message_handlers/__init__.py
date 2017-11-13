@@ -1,6 +1,8 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 from .base_handlers import BaseMessageHandler
 from .collection_information_request_handlers import (CollectionInformationRequest11Handler,
                                                       CollectionInformationRequestHandler)

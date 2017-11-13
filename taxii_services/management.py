@@ -1,6 +1,8 @@
 # Copyright (c) 2014, The MITRE Corporation. All rights reserved.
 # For license information, see the LICENSE.txt file
 
+from __future__ import absolute_import
+
 from django.core.exceptions import AppRegistryNotReady
 from django.db.models.signals import post_syncdb
 from django.db.utils import DatabaseError
