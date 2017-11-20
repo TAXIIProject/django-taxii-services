@@ -1,6 +1,29 @@
 Release Notes
 =============
 
+
+0.5 (2017-11-20)
+----------------
+
+* #46 - Convert ``longs`` to ``ints`` (@AdamTheAnalyst)
+* #44 - Use absolute imports (@gtback)
+* #40 - Return full URLs in <Address> elements (@jasenj1)
+* #30 - Drop support for Python 2.6 (@gtback)
+* Start to align repository with other projects
+
+
+0.4 (2015-03-26)
+----------------
+
+TODO: Fill this in
+
+
+0.3 (2014-11-12)
+----------------
+
+TODO: Fill this in
+
+
 0.2
 ---
 The structure of Message Handlers and Query Handlers were significantly reorganized:
