@@ -4,7 +4,7 @@
 from __future__ import absolute_import
 
 from django.core.exceptions import AppRegistryNotReady
-from django.db.models.signals import post_syncdb
+from django.db.models.signals import post_migrate
 from django.db.utils import DatabaseError
 
 from taxii_services.models import MessageHandler, QueryHandler
@@ -48,7 +48,7 @@ def register_message_handler(message_handler, name=None, retry=True):
         if retry:
             message_handlers_to_retry.append((message_handler, name))
             # print "retry", message_handler
-            print dbe.__class__
+            print(dbe.__class__)
         else:
             # print "raise", message_handler
             raise
@@ -111,4 +111,4 @@ def retry_handler_registration(sender, **kwargs):
 # after a few hours digging in django source code i couldn't
 # figure out another way to connect this handler so
 # it stays this way for now
-post_syncdb.connect(retry_handler_registration)
+post_migrate.connect(retry_handler_registration)

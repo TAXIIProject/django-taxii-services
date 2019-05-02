@@ -147,7 +147,7 @@ class SupportInfo(object):
         self.message = message
 
 
-class _BindingBase(models.Model):
+class BindingBase(models.Model):
     """
     Base class for Bindings (e.g., Protocol Binding, Content Binding, Message Binding)
     """
@@ -161,7 +161,7 @@ class _BindingBase(models.Model):
         return u'%s (%s)' % (self.name, self.binding_id)
 
 
-class _Handler(models.Model):
+class Handler(models.Model):
     """
     A handler is an extension point that allows user-defined code to be used
     in conjunction with django-taxii-services
@@ -247,7 +247,7 @@ class _Handler(models.Model):
         ordering = ['name']
 
 
-class _Tag(models.Model):
+class Tag(models.Model):
     """
     Not to be used by users directly. Defines common tags used for certain other models.
     """
@@ -274,7 +274,7 @@ def get_protocol(binding_id):
         raise ValueError("Unknown Protocol Binding ID %s" % binding_id)
 
 
-class _TaxiiService(models.Model):
+class TaxiiService(models.Model):
     """
     Not to be used by users directly. Defines common fields that all
     TAXII Services use.
@@ -358,11 +358,11 @@ class _TaxiiService(models.Model):
         ordering = ['name']
 
 
-class CapabilityModule(_Tag):
+class CapabilityModule(Tag):
     pass
 
 
-class CollectionManagementService(_TaxiiService):
+class CollectionManagementService(TaxiiService):
     """
     Model for Collection Management Service. This is also used
     for Feed Management Service.
@@ -380,8 +380,8 @@ class CollectionManagementService(_TaxiiService):
                                                                               'ManageCollectionSubscriptionRequest'},
                                                         blank=True,
                                                         null=True)
-    advertised_collections = models.ManyToManyField('DataCollection', blank=True, null=True)
-    supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    advertised_collections = models.ManyToManyField('DataCollection', blank=True)
+    supported_queries = models.ManyToManyField('SupportedQuery', blank=True)
 
     def get_message_handler(self, taxii_message):
         if taxii_message.message_type == MSG_COLLECTION_INFORMATION_REQUEST:
@@ -476,7 +476,7 @@ class CollectionManagementService(_TaxiiService):
         verbose_name = "Collection Management Service"
 
 
-class ContentBinding(_BindingBase):
+class ContentBinding(BindingBase):
     """
     Model for Content Binding IDs. Subtypes are stored in a different model.
 
@@ -708,8 +708,8 @@ class DataCollection(models.Model):
     type = models.CharField(max_length=MAX_NAME_LENGTH, choices=DATA_COLLECTION_CHOICES)
     enabled = models.BooleanField(default=True)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
-    content_blocks = models.ManyToManyField('ContentBlock', blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True)
+    content_blocks = models.ManyToManyField('ContentBlock', blank=True)
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1057,7 +1057,7 @@ class QueryScope(models.Model):
         return u'%s (%s)' % (self.name, self.scope)
 
 
-class DiscoveryService(_TaxiiService):
+class DiscoveryService(TaxiiService):
     """
     Model for a TAXII Discovery Service
     """
@@ -1234,7 +1234,7 @@ class InboxMessage(models.Model):
         verbose_name = "Inbox Message"
 
 
-class InboxService(_TaxiiService):
+class InboxService(TaxiiService):
     """
     Model for a TAXII Inbox Service
     """
@@ -1245,7 +1245,7 @@ class InboxService(_TaxiiService):
     destination_collection_status = models.CharField(max_length=MAX_NAME_LENGTH, choices=ROP_CHOICES)
     destination_collections = models.ManyToManyField('DataCollection', blank=True)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True)
 
     def get_message_handler(self, taxii_message):
         if taxii_message.message_type == MSG_INBOX_MESSAGE:
@@ -1378,7 +1378,7 @@ class InboxService(_TaxiiService):
         verbose_name = "Inbox Service"
 
 
-class MessageBinding(_BindingBase):
+class MessageBinding(BindingBase):
     """
     Represents a Message Binding, used to establish the supported syntax
     for a given TAXII exchange, "e.g., XML".
@@ -1391,7 +1391,7 @@ class MessageBinding(_BindingBase):
         verbose_name = "Message Binding"
 
 
-class MessageHandler(_Handler):
+class MessageHandler(Handler):
     """
     MessageHandler model object.
     """
@@ -1410,7 +1410,7 @@ class MessageHandler(_Handler):
         verbose_name = "Message Handler"
 
 
-class PollService(_TaxiiService):
+class PollService(TaxiiService):
     """
     Model for a Poll Service
     """
@@ -1426,7 +1426,7 @@ class PollService(_TaxiiService):
                                                  blank=True,
                                                  null=True)
     data_collections = models.ManyToManyField('DataCollection')
-    supported_queries = models.ManyToManyField('SupportedQuery', blank=True, null=True)
+    supported_queries = models.ManyToManyField('SupportedQuery', blank=True)
     requires_subscription = models.BooleanField(default=False)
     max_result_size = models.IntegerField(blank=True, null=True)  # Blank means "no limit"
 
@@ -1551,7 +1551,7 @@ class PollService(_TaxiiService):
         verbose_name = "Poll Service"
 
 
-class ProtocolBinding(_BindingBase):
+class ProtocolBinding(BindingBase):
     """
     Represents a Protocol Binding, used to establish the supported transport
     for a given TAXII exchange, "e.g., HTTP".
@@ -1564,7 +1564,7 @@ class ProtocolBinding(_BindingBase):
         verbose_name = "Protocol Binding"
 
 
-class QueryHandler(_Handler):
+class QueryHandler(Handler):
     """
     A model for Query Handlers. A query handler is a function that
     takes two arguments: A query and a content block and returns
@@ -1579,8 +1579,8 @@ class QueryHandler(_Handler):
                          'filter_content',
                          'update_db_kwargs']
 
-    targeting_expression_ids = models.ManyToManyField('TargetingExpressionId', editable=False, blank=True, null=True)
-    capability_modules = models.ManyToManyField('CapabilityModule', editable=False, blank=True, null=True)
+    targeting_expression_ids = models.ManyToManyField('TargetingExpressionId', editable=False, blank=True)
+    capability_modules = models.ManyToManyField('CapabilityModule', editable=False)
 
     def clean(self):
         handler_class = super(QueryHandler, self).clean()
@@ -1720,7 +1720,7 @@ class Subscription(models.Model):
     data_collection = models.ForeignKey('DataCollection')
     response_type = models.CharField(max_length=MAX_NAME_LENGTH, choices=RESPONSE_CHOICES, default=RT_FULL)
     accept_all_content = models.BooleanField(default=False)
-    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True, null=True)
+    supported_content = models.ManyToManyField('ContentBindingAndSubtype', blank=True)
     query = models.TextField(blank=True, null=True)
     # push_parameters = models.ForeignKey(PushParameters)  # TODO: Create a push parameters object
     delivery = models.CharField(max_length=MAX_NAME_LENGTH, choices=DELIVERY_CHOICES, default=SUBS_POLL)
@@ -1800,8 +1800,8 @@ class SupportedQuery(models.Model):
 
     query_handler = models.ForeignKey('QueryHandler')
     use_handler_scope = models.BooleanField(default=True)
-    preferred_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='preferred_scope')
-    allowed_scope = models.ManyToManyField('QueryScope', blank=True, null=True, related_name='allowed_scope')
+    preferred_scope = models.ManyToManyField('QueryScope', blank=True, related_name='preferred_scope')
+    allowed_scope = models.ManyToManyField('QueryScope', blank=True, related_name='allowed_scope')
 
     date_created = models.DateTimeField(auto_now_add=True)
     date_updated = models.DateTimeField(auto_now=True)
@@ -1904,11 +1904,11 @@ class SupportedQuery(models.Model):
         verbose_name_plural = "Supported Queries"
 
 
-class TargetingExpressionId(_Tag):
+class TargetingExpressionId(Tag):
     pass
 
 
-class Validator(_Handler):
+class Validator(Handler):
     """
     Model for Validators. A Validator, at the moment,
     is an idea only. Eventually, it would be nice to be

@@ -3,12 +3,14 @@
 
 from __future__ import absolute_import
 
-from django.conf.urls import include, patterns, url
+from django.conf.urls import include, url
 from django.contrib import admin
 from django.views.generic import TemplateView
 
+from taxii_services.views import service_router
+
 admin.autodiscover()
 
-urlpatterns = patterns('',
-                       url(r'([\w-]+)/$', 'taxii_services.views.service_router'),
-                       )
+urlpatterns = [
+    url(r'([\w-]+)/$', service_router, name='service_router'),
+]

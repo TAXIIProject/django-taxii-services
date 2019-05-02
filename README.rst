@@ -37,8 +37,8 @@ django-taxii-services include:
 -  Easy - Always a subjective term, but django-taxii-services aims to be
    easy to use.
 
-**Please Note** that this library is under rapid development. If you see
-anything you'd like to ask a question on, please open an issue on GitHub or contact the TAXII Team at taxii@mitre.org.
+If you see anything you'd like to ask a question on, please open an issue on
+GitHub or contact the TAXII Team at taxii@mitre.org.
 
 Using django-taxii-services
 ---------------------------

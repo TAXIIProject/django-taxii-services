@@ -17,7 +17,10 @@ DATABASES = {
 
 INSTALLED_APPS = [
     'taxii_services',
+    'django.contrib.sites',
 ]
+
+SITE_ID = 1
 
 MIDDLEWARE_CLASSES = (
     'taxii_services.middleware.StatusMessageExceptionMiddleware',
