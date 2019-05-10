@@ -104,7 +104,7 @@ def retry_handler_registration(sender, **kwargs):
 
     while len(message_handlers_to_retry):
         mh = message_handlers_to_retry.pop()
-        print "retrying", mh[0]
+        print("retrying", mh[0])
         register_message_handler(mh[0], mh[1], retry=False)
 
 # Leaving the sender blank is probably not right, but

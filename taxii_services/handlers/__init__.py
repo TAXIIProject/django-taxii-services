@@ -53,7 +53,7 @@ def get_service_from_path(path):
     Given a path, return a TAXII Service model object.
     If no service is found, raise Http404.
     """
-    # Note that because these objects all inherit from models._TaxiService,
+    # Note that because these objects all inherit from models.TaxiService,
     # which defines the path field, paths are guaranteed to be unique.
     # That said, this can probably be done more efficiently
     try:
@@ -68,7 +68,7 @@ def get_service_from_path(path):
 
     try:
         return models.PollService.objects.get(path=path, enabled=True)
-    except:
+    except Exception as e:
         pass
 
     try:
