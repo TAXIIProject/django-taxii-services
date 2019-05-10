@@ -5,7 +5,7 @@ Please Note:
 ------------
 
 This library is no longer maintained. If you need an open source TAXII 1.X
-implementation, please see [this list of other libraries](https://wiki.oasis-open.org/cti/Open%20Source%20Projects).
+implementation, please see `this list of other libraries <https://wiki.oasis-open.org/cti/Open%20Source%20Projects>`__.
 
 :Source: https://github.com/TAXIIProject/django-taxii-services
 :Documentation: http://taxii-services.readthedocs.io
